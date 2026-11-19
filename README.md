@@ -4,8 +4,8 @@
 
 全程本地推理，**无任何网络请求，数据不出设备**。
 
-> **模型文件不随仓库分发**（约 453MB，超出 GitHub 单文件 100MB 限制）。
-> 请从 [Releases](https://github.com/3445215166wq-ai/video-comment-filter/releases) 下载 `model.onnx` 与 `sentencepiece.bpe.model`，放入 `models/` 目录。详见 [`models/README.md`](models/README.md)。
+> **`model.onnx`（448MB）不随仓库分发**（超出 GitHub 单文件 100MB 限制），请从 [Releases](https://github.com/3445215166wq-ai/video-comment-filter/releases) 下载后放入 `models/` 目录。
+> 分词表 `sentencepiece.bpe.model`（5.3MB）已随仓库提供，无需另行获取。详见 [`models/README.md`](models/README.md)。
 
 ## 界面
 
@@ -130,7 +130,8 @@
 │   ├── positive_templates/
 │   └── negative_templates/
 │
-├── models/                         # 模型目录（文件需自行获取）
+├── models/                         # 分词表（随仓库）+ 语义模型（Release 获取）
+│   ├── sentencepiece.bpe.model
 │   └── README.md
 │
 └── docs/                           # 架构文档与界面设计图
@@ -213,6 +214,7 @@ ONNX Runtime 直接加载本地模型，全程无网络调用。相比 Python �
 | 文档 | 内容 |
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 分层架构、模块职责、接口契约、执行流程、决策矩阵 |
+| [`docs/TOKENIZER_ALIGNMENT.md`](docs/TOKENIZER_ALIGNMENT.md) | 故障复盘：分词器与模型 ID 空间错位（静默正确性缺陷的定位与修复方案） |
 | [`models/README.md`](models/README.md) | 模型获取与张量接口要求 |
 | [`data/README.md`](data/README.md) | 配置字段与模板格式 |
 

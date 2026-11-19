@@ -1,11 +1,15 @@
 # 模型文件说明
 
-本程序运行需要两个模型文件，**均不纳入版本库**（合计约 453MB，超出 GitHub 单文件 100MB 上限）：
+本程序运行需要两个模型文件：
 
-| 文件 | 大小 | 作用 |
-|---|---|---|
-| `model.onnx` | 448MB | 语义编码模型，把评论文本编码成句向量 |
-| `sentencepiece.bpe.model` | 4.8MB | 分词器，把中文文本切成模型能吃的 token id |
+| 文件 | 大小 | 作用 | 存放 |
+|---|---|---|---|
+| `model.onnx` | 448MB | 语义编码模型，把评论文本编码成句向量 | 需从 [Releases](https://github.com/3445215166wq-ai/video-comment-filter/releases) 下载（超 GitHub 单文件 100MB 上限） |
+| `sentencepiece.bpe.model` | 5.3MB | 分词器，把文本切成模型能吃的 token id | **已随仓库分发**，见本目录 |
+
+> `sentencepiece.bpe.model` 由 `tools/rebuild_sentencepiece_model.py` 从原始 `tokenizer.json` 重建而成，
+> 保证 piece 顺序与模型 embedding 行号一致。**请勿用第三方"格式转换"工具重新生成**——
+> 那会重排特殊词元并令全部 id 错位 1 位，且程序不会报错。详见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
 
 放好之后的目录结构：
 
@@ -53,17 +57,18 @@
 
 | 项 | 实测值 |
 |---|---|
-| 词表规模 | 250,000 个 piece |
-| `<unk>` | id 0（类型 UNKNOWN） |
-| `<s>` | id 1（类型 CONTROL） |
-| `</s>` | id 2（类型 CONTROL） |
-| `<pad>` | **不存在** |
+| 词表规模 | 250,002 个 piece |
+| `<s>` | id **0**（类型 CONTROL） |
+| `<pad>` | id **1**（类型 CONTROL） |
+| `</s>` | id **2**（类型 CONTROL） |
+| `<unk>` | id **3**（类型 UNKNOWN） |
+| `<mask>` | id **250001**（类型 CONTROL） |
 | `[CLS]` / `[SEP]` / `[PAD]` | 不存在 |
 
 两点结论：
 
-1. 这套 `<s>` / `</s>` 属于 **XLM-R 体系的 SentencePiece**，正是多语言 MiniLM 的原生分词器——**模型与分词表是配套的**，不是错配。
-2. **词表里没有 `<pad>`**，因此 `VideoFilteringCore/model/text_preproc.cpp` 中的 `PieceToId("<pad>")` 会回退到 `<unk>`（id 0），填充实际使用 id 0。由于 `attention_mask` 在填充位置同样置 0，判定结果不受影响；但正文中真实出现的 `<unk>` 词元也会被一并 mask 掉。这是已知的小缺陷。
+1. 这套 `<s>` / `<pad>` / `</s>` / `<unk>` 属于 **XLM-R 体系的 SentencePiece**，与多语言 MiniLM 原生配对。
+2. 特殊词元的 id 排布**必须与模型 `word_embeddings` 的行序一致**。历史上本仓库曾使用一份由第三方工具"格式转换"得到的分词表，它把特殊词元重排为 `<unk>/<s>/</s>` 并丢弃了 `<pad>`，导致其后 249,996 个正常词元**整体前移 1 位**，语义筛选失效且全程不报错。现已用 `tools/rebuild_sentencepiece_model.py` 重建，修复细节见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
 
 ### 哪些模型可以替换
 
@@ -98,22 +103,31 @@
 
 ## 获取方式
 
-这两个文件作为 Release 附件提供：
+`sentencepiece.bpe.model` 已随仓库分发（5.3MB），无需下载。
+
+只有 `model.onnx`（448MB，超出 GitHub 单文件 100MB 上限）需要单独获取，作为 Release 附件提供：
 
 **https://github.com/3445215166wq-ai/video-comment-filter/releases/latest**
 
-| 附件 | 下载后放到 |
-|---|---|
-| `model.onnx` | `models/model.onnx` |
-| `sentencepiece.bpe.model` | `models/sentencepiece.bpe.model` |
-
-也可用命令行：
-
 ```bash
-gh release download v1.0.0 --repo 3445215166wq-ai/video-comment-filter --dir models
+gh release download v1.0.0 --repo 3445215166wq-ai/video-comment-filter --pattern model.onnx --dir models
 ```
 
-拿到后直接放进 `models/` 目录即可。
+拿到后放进 `models/` 目录即可。
+
+## 重建分词表（仅在做模型迁移时需要）
+
+若更换了模型（`model.onnx`），其 `word_embeddings` 行序可能变化，此时必须同步重建分词表：
+
+```bash
+python tools/rebuild_sentencepiece_model.py \
+    --tokenizer-json <原始 tokenizer.json> \
+    --spm  models/sentencepiece.bpe.model \
+    --out  models/sentencepiece.bpe.model.new
+```
+
+脚本会以 `tokenizer.json` 的 piece 顺序为准、沿用现有 score、显式写入 `unk_id/bos_id/eos_id/pad_id`，并在写出后自动回读校验。
+**不要用第三方"tokenizer.json → .model 格式转换"工具**，理由见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
 
 ---
 
