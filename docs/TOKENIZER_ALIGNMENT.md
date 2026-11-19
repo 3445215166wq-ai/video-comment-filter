@@ -2,8 +2,12 @@
 
 > 本文记录一个**静默正确性缺陷**的完整复盘：系统不报错、不崩溃、有正常输出，但语义计算结果不携带语义信息。
 >
-> **状态**：**已修复并验证**。分词表已用 `tools/rebuild_sentencepiece_model.py` 重建（方案二），
-> 切词行为与修复前逐字一致，语义区分度由 **−0.0149** 转正至 **+0.2894**。C++ 代码无需改动。
+> **状态**：**已修复并验证**。采用**方案一**——分词表保持上游原版一字节不改，
+> 在 `text_preproc.cpp` 中显式实现 `fairseq_offset = 1` 的补偿。
+> 语义区分度由 **−0.0149** 转正至 **+0.2894**。
+>
+> ⚠️ 本文记录了一次**根因改判三次**的过程（v1 第三方工具 → v2 上游矛盾 → v3 XLM-R 的 fairseq_offset）。
+> 前两个结论已被推翻，但在文中保留，因为**试错路径本身是这份复盘的一部分**。
 
 ---
 
@@ -201,24 +205,35 @@ return spm_id + self.fairseq_offset if spm_id else self.unk_token_id
 
 ## 6. 修复方案
 
-### 6.1 方案一：代码内做 id 重映射（备选，**最终未采用**）
+### 6.1 方案一：代码内做 id 补偿 ✅ **已采用**
 
-把转换后的 id 映射回模型期望的 id：
+在 `text_preproc.cpp` 里显式实现与 HF `XLMRobertaTokenizer` 相同的映射：
 
 ```
-转换后 id → 模型期望 id
+spm 原始 id → 模型期望 id
 0 (<unk>) → 3
 1 (<s>)   → 0
 2 (</s>)  → 2
-n ≥ 3     → n + 1
+n ≥ 3     → n + 1        // fairseq_offset = 1
 ```
 
-同时把 `bos / pad / eos` 改为 `0 / 1 / 2`，并把 **attention mask 改为按真实长度生成**（不再依赖 pad id，见 6.3）。
+特殊词元不再通过 `PieceToId()` 查询，而是直接用模型 id 常量
+（`<s>=0 / <pad>=1 / </s>=2`）——因为 spm 里 `<s>` 是 1、`<unk>` 是 0，
+而且**根本没有 `<pad>`**（查询会静默回退成 `<unk>`）。
 
-- 优点：纯算术，无需新文件，可立即用对照实验验证
-- 缺点：属于"补丁"，可读性一般
+实现见 `VideoFilteringCore/model/text_preproc.cpp` 顶部的 `SpmIdToModelId()`，
+注释里带上了对 transformers 源码的引用。
 
-### 6.2 方案二：重建一份无损的 spm ✅ **已采用**
+- 优点：**分词表保持上游原版、一字节不改**；模型专属的适配知识显式可见；
+  不会产出"只被本项目理解"的私有产物
+- 缺点：补偿逻辑在代码里，换模型时需一并检查
+
+> **为什么最终选它而不是方案二**：方案二要改的是**输入产物**，
+> 一旦改了，这份 spm 就不再是上游原版——别人拿它配 HF 用会偏移两次，
+> 上游更新时也会漂移。**数据保持标准、适配放在边界**，是耦合更低的做法。
+> 这也印证了一条通用原则：不要 fork 上游产物，要在自己的边界处适配。
+
+### 6.2 方案二：重建一份把偏移固化进文件的 spm（备选，未采用）
 
 从原版 `tokenizer.json` 重新构建 SentencePiece ModelProto，**保持 piece 的原始顺序**，并在 `trainer_spec` 中显式声明：
 
@@ -232,19 +247,23 @@ eos_id = 2
 同时保留 normalizer 的 precompiled charsmap 与各 piece 的 score（score 从原 spm 按 piece 字符串取，从而**保证切分行为不变**）。
 
 - 优点：C++ 侧代码无需改动，`PieceToId("<pad>")` 自然返回正确值；可复现（脚本入 `tools/`）
-- 缺点：需要能加载 `.model` 的环境做验证（本项目用自建 C++ 探针，见第 7 节）
+- 缺点：**产出的是一份非上游原版的私有文件**；别人拿它配 HF 用会偏移两次；上游更新时会漂移
+- 适用场景：调用方不方便改代码（例如第三方集成、或分词表被多个项目共用）
+
+> 该方案已实现并验证过（`tools/rebuild_sentencepiece_model.py`，区分度同为 **+0.2894**），
+> 脚本保留在仓库中以備需要，但**不要与本项目的代码侧补偿同时启用**——偏移只能加一次。
 
 **实施产物**
 
-| 文件 | 作用 |
-|---|---|
-| `tools/rebuild_sentencepiece_model.py` | 生成器。仅用标准库手写 protobuf 读写，无需安装 `sentencepiece`/`protobuf` |
-| `tools/spm_probe.cpp` + `tools/CMakeLists.txt` | 验证探针。用项目实际链接的 `sentencepiece.lib` 加载 `.model`，输出特殊词元 id 与逐句分词结果 |
+| 文件 | 作用 | 当前是否启用 |
+|---|---|---|
+| `tools/rebuild_sentencepiece_model.py` | 方案二的生成器。仅用标准库手写 protobuf 读写，无需安装 `sentencepiece`/`protobuf` | 保留备用，**默认不启用** |
+| `tools/spm_probe.cpp` + `tools/CMakeLists.txt` | 验证探针。用项目实际链接的 `sentencepiece.lib` 加载 `.model`，输出特殊词元 id 与逐句分词结果 | ✅ 验证时使用 |
 
 生成器实测参数（从原文件解析得到，非假定）：`trainer_spec` 中 `field 40/41/42/43` 分别是 `unk_id/bos_id/eos_id/pad_id`，
-原文件中 `pad_id = -1`（即"无 pad"），这正是缺陷根源；重建时写入 `3 / 0 / 2 / 1`。
+原文件中 `pad_id = -1`（即"无 pad"）；重建时写入 `3 / 0 / 2 / 1`。
 
-### 6.3 顺带修正的次生缺陷 ✅ 由 6.2 自动解决
+### 6.3 顺带修正的次生缺陷 ✅ 已在 6.1 中一并解决
 
 修复前 `text_preproc.cpp` 用 `PieceToId("<pad>")` 取填充 id。原词表无 `<pad>`，该调用回退为 `unk_id`（0），于是：
 
@@ -252,7 +271,8 @@ eos_id = 2
 - `mask[i] = (ids[i] != pad)` 等价于 `ids[i] != 0`，对普通文本恰好等价于长度掩码，属于歪打正着
 - 但**正文中真实的 `<unk>` 也会被一并 mask 掉**
 
-重建后 `<pad>` 存在且 `pad_id = 1`，`PieceToId("<pad>")` 返回 1，`<unk>`（id 3）不再被误 mask，**该次生缺陷随主缺陷一并消失，C++ 代码无需改动**。
+采用方案一后，填充 id 直接使用模型常量 `kModelIdPad = 1`（不再向 spm 查询），
+而 `<unk>` 的模型 id 是 3，因此**正文中的 `<unk>` 不再被误 mask**，该次生缺陷一并消失。
 
 > 仍建议后续把 mask 改为"按真实长度生成"以彻底解耦（mask 是长度信息，不是词汇信息）：
 >

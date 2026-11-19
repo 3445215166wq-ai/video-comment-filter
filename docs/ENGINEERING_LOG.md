@@ -130,9 +130,15 @@ nlohmann），做到「克隆即可编译」。
   走 HF `AutoTokenizer` 不会出问题，绕过它就会整体错位。
   （此前两个错误结论——"被第三方转换工具搞坏"和"上游仓库自相矛盾"——均已推翻。）
 - **一个反直觉的比例**：出错的是 4 个特殊词元（占词表 0.002%），被破坏的是 99.998%。
-- **修法（方案二）**：不采用"代码里 +1 补偿"，而是用
-  `tools/rebuild_sentencepiece_model.py` 按 `tokenizer.json` 的原始顺序重建 ModelProto，
-  显式写入 `unk_id=3 / bos_id=0 / eos_id=2 / pad_id=1`，score 沿用原文件以保证切分不变。
+- **修法（方案一，最终采用）**：**分词表保持上游原版、一字节不改**，在
+  `VideoFilteringCore/model/text_preproc.cpp` 顶部实现 `SpmIdToModelId()`，
+  复刻 HF `XLMRobertaTokenizer` 的 `fairseq_offset = 1`；特殊词元直接用模型 id 常量
+  （`<s>=0/<pad>=1/</s>=2`），不再向 spm 查询。
+  选它而非"重建 spm 把偏移固化进文件"的理由：**不要 fork 上游产物**——
+  改了 spm 就产出一份只有本项目理解的私有文件，别人配 HF 用会偏移两次，上游更新时还会漂移。
+  **数据保持标准、适配放在边界。**
+- **验证**：同一批 9 句语料，代码侧补偿后语义区分度 **+0.2894**（与文件侧固化方案数值完全一致）；
+  端到端程序启动正常、工作集约 559 MB。
 - **验证（两级，缺一不可）**：
   1. `tools/spm_probe.cpp` 用项目实际链接的 `sentencepiece.lib` 对比新旧文件 →
      9 句 piece 字符串序列**逐字一致**，id 映射违规 **0 条**

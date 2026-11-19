@@ -7,15 +7,22 @@
 | `model.onnx` | 448MB | 语义编码模型，把评论文本编码成句向量 | 需从 [Releases](https://github.com/3445215166wq-ai/video-comment-filter/releases) 下载（超 GitHub 单文件 100MB 上限） |
 | `sentencepiece.bpe.model` | 5.3MB | 分词器，把文本切成模型能吃的 token id | **已随仓库分发**，见本目录 |
 
-> `sentencepiece.bpe.model` 由 `tools/rebuild_sentencepiece_model.py` 从原始 `tokenizer.json` 重建而成，
-> 保证 piece 顺序与模型 embedding 行号一致。
+> **本目录的 `sentencepiece.bpe.model` 是上游原版文件，未作任何改动**
+> （SHA256 `CFC8146A…`，与 `xlm-roberta-base` 官方发布的一致）。
 >
-> ⚠️ **不要直接使用上游仓库自带的 `sentencepiece.bpe.model`。** XLM-R 系的 spm 有一个已知特性：
-> **它的原始 id 与模型实际使用的 token id 相差 1 位**（`<unk>=0/<s>=1/</s>=2/','=3…` vs 模型的
-> `<s>=0/<pad>=1/</s>=2/<unk>=3/','=4…`）。HuggingFace 在 `XLMRobertaTokenizer` 里用
-> `fairseq_offset = 1` 显式补偿；**绕过 HF、直接用 SentencePiece 原生库时，调用方必须自己加这个偏移**，
-> 否则整体错位 1 位且**不报错**。本仓库的分词表已把偏移固化进文件，故 C++ 侧无需再做补偿。
+> ⚠️ **XLM-R 系的 spm 有一个已知特性**：它的**原始 id 与模型实际使用的 token id 相差 1 位**
+> （spm 为 `<unk>=0/<s>=1/</s>=2/','=3…`，模型为 `<s>=0/<pad>=1/</s>=2/<unk>=3/','=4…`）。
+> HuggingFace 在 `XLMRobertaTokenizer` 里用 `fairseq_offset = 1` 显式补偿。
+>
+> **本项目把这个补偿放在代码里**：见
+> [`VideoFilteringCore/model/text_preproc.cpp`](../VideoFilteringCore/model/text_preproc.cpp)
+> 顶部的 `SpmIdToModelId()`。**偏移只加一次**——因此分词表必须保持原版，
+> 若自行改动分词表再叠加代码补偿，会变成偏移两次。
+>
 > 详见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
+>
+> （`tools/rebuild_sentencepiece_model.py` 仍保留：它能把偏移固化进文件，
+> 适用于"调用方不方便改代码"的场景，但**不要与本项目的代码侧补偿同时使用**。）
 
 放好之后的目录结构：
 
