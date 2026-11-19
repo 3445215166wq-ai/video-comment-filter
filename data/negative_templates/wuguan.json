@@ -1,0 +1,26 @@
+[
+  {
+    "username": "路人甲",
+    "content": "我是来看评论的",
+    "time": "5小时前",
+    "location": "北京",
+    "likes": 156,
+    "reply_to": null
+  },
+  {
+    "username": "打卡党",
+    "content": "第10086个观看 打卡",
+    "time": "1天前",
+    "location": null,
+    "likes": 34,
+    "reply_to": null
+  },
+  {
+    "username": "骗赞",
+    "content": "点赞过1000我就表白",
+    "time": "2小时前",
+    "location": "四川",
+    "likes": 899,
+    "reply_to": null
+  }
+]

@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{a847106b-d98f-4064-a801-09f864e1e5b0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="内部实现">
+      <UniqueIdentifier>{3283cb9f-6930-450d-9271-7366ecb7f158}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="core\similarity_policy.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="model\comment_loader.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="model\onnx_infer.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="model\string_util.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="model\text_preproc.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\utils.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\utils_clipboard.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\utils_file.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\utils_input.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\utils_log.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="utils\utils_math.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="application\ApplicationService.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="application\ConfigurationManager.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="application\FilterEngine.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="application\StateManager.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="clean\cleaners.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="clean\parser.cpp">
+      <Filter>内部实现</Filter>
+    </ClCompile>
+    <ClCompile Include="business_operations.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="VideoFilteringCore.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="core\similarity_policy.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="model\comment_loader.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="model\onnx_infer.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="model\string_util.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="model\text_preproc.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\utils.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\utils_internal.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="application\ApplicationService.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="application\ConfigurationManager.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="application\FilterEngine.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="application\IApplicationController.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="application\StateManager.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="clean\cleaners.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="clean\parser.h">
+      <Filter>内部实现</Filter>
+    </ClInclude>
+    <ClInclude Include="business_operations.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="framework.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

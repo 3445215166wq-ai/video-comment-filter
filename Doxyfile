@@ -1,0 +1,39 @@
+PROJECT_NAME           = "视频智能筛选工具"
+OUTPUT_DIRECTORY       = docs
+INPUT                  = ./src ./VideoFilteringCore ./QtFloatingBall
+RECURSIVE              = YES
+WARNINGS               = NO
+
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+
+# Graphviz 强制全开所有架构总图
+HAVE_DOT               = YES
+DOT_PATH               = "C:/Program Files/Graphviz/bin"
+UML_LOOK               = YES
+
+# 【强制生成！你找不到的页面就是没开这几个】
+DIRECTORY_GRAPH        = YES
+GRAPHICAL_HIERARCHY    = YES
+CLASS_DIAGRAMS         = YES
+INCLUDE_GRAPH          = YES
+COLLABORATION_GRAPH    = YES
+
+CALL_GRAPH             = YES
+CALLER_GRAPH           = NO
+
+MAX_DOT_GRAPH_DEPTH    = 3
+DOT_GRAPH_MAX_NODES    = 60
+
+# 【核心：零门槛出图，不隐藏任何业务类】
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+HIDE_UNDOC_CLASSES     = NO
+HIDE_UNDOC_MEMBERS     = NO
+
+# 【终极净化：彻底删掉垃圾目录】
+EXCLUDE                = ./out ./build ./debug ./release ./CMakeFiles ./3rdparty ./onnx ./sentencepiece
+
+FILE_PATTERNS          = *.cpp *.h *.hpp
+
+EXCLUDE_SYMBOLS        = std::* Qt::* onnxruntime::* Ort::* nlohmann::* absl::*

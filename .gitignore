@@ -1,0 +1,85 @@
+# ===== 构建产物 =====
+build/
+out/
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+*.exe
+*.dll
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.obj
+*.iobj
+*.ipdb
+*.res
+*.tlog
+*.lastbuildstate
+
+# 例外：随仓库分发的第三方预编译库与运行时
+!VideoFilteringCore/include/sentencepiece.lib
+!VideoFilteringCore/onnx/onnxruntime-win-x64-1.14.1/lib/onnxruntime.lib
+!VideoFilteringCore/onnx/onnxruntime-win-x64-1.14.1/lib/onnxruntime.dll
+!VideoFilteringCore/onnx/onnxruntime-win-x64-1.14.1/lib/onnxruntime_providers_shared.dll
+!VideoFilteringCore/onnx/onnxruntime-win-x64-1.14.1/lib/onnxruntime_providers_shared.lib
+
+# ===== Visual Studio =====
+.vs/
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+ipch/
+[Bb]rowse.VC.db*
+
+# ===== CMake =====
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+cmake_install.cmake
+*.cmake.stamp
+
+# ===== Qt =====
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.moc
+.qmake.stash
+
+# ===== 大模型文件（体积过大，按 models/README.md 自行获取） =====
+models/*.onnx
+models/*.bpe.model
+models/*.model
+
+# ===== 运行期生成的数据 =====
+# data/ 下的 config.json 与 *templates/ 样例随仓库分发，
+# 以下运行期输出目录不纳入版本控制
+data/raw/
+data/cleaned/
+data/parser/
+data/SimilarityCheck/
+
+# ===== IDE / 系统 =====
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ===== 日志与临时文件 =====
+*.log
+videodemo_debug.txt
+test_onnx_log.txt
+token_input_hex.txt

@@ -1,0 +1,45 @@
+# 默认：自动规范化换行符，源码以 LF 存储在仓库中
+* text=auto
+
+# ===== 源码 =====
+*.c       text
+*.cpp     text
+*.cc      text
+*.h       text
+*.hpp     text
+*.md      text
+*.txt     text
+*.json    text
+*.props   text
+*.qrc     text
+*.cmake   text
+CMakeLists.txt text
+
+# Windows 批处理/脚本保持 CRLF
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+*.ps1     text eol=crlf
+
+# Visual Studio 工程文件：允许正常合并
+*.sln     text eol=crlf
+*.vcxproj text eol=crlf
+*.vcxproj.filters text eol=crlf
+
+# ===== 二进制文件：禁止任何转换与文本 diff =====
+*.lib     binary
+*.dll     binary
+*.exe     binary
+*.pdb     binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.onnx    binary
+*.model   binary
+*.pdf     binary
+*.pptx    binary
+*.docx    binary
+*.zip     binary
+*.7z      binary
+*.mp4     binary

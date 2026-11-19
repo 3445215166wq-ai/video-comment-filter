@@ -1,0 +1,34 @@
+[
+  {
+    "username": "十年老粉",
+    "content": "看到最后那段突然泪目了。想起自己刚毕业那会儿，也是这么跌跌撞撞走过来的",
+    "time": "1小时前",
+    "location": "四川",
+    "likes": 2341,
+    "reply_to": null
+  },
+  {
+    "username": "实践派",
+    "content": "用了三个月来反馈：一开始觉得麻烦，养成习惯后发现效率真的翻倍。关键是第二点，很多人做不到",
+    "time": "2天前",
+    "location": "湖北",
+    "likes": 567,
+    "reply_to": null
+  },
+  {
+    "username": "相似经历",
+    "content": "和我导师说的一模一样。当年不懂，现在工作五年才理解这个道理的份量",
+    "time": "6小时前",
+    "location": "江苏",
+    "likes": 445,
+    "reply_to": null
+  },
+  {
+    "username": "深夜破防",
+    "content": "凌晨两点刷到这个，本来准备睡了，看完坐起来写了八百字日记。这就是说的我吧",
+    "time": "昨天",
+    "location": null,
+    "likes": 1203,
+    "reply_to": null
+  }
+]

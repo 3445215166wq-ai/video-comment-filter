@@ -1,0 +1,6 @@
+{
+    "mode": 3,
+    "negative_threshold": 0.5,
+    "positive_threshold": 0.5,
+    "record_data": true
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "username": "数学爱好者",
+    "content": "这里有个疑问，第三步的推导是不是漏了边界条件？如果是闭区间的话，极值点可能在端点",
+    "time": "2小时前",
+    "location": "北京",
+    "likes": 128,
+    "reply_to": null
+  },
+  {
+    "username": "过来人",
+    "content": "实测有效，但建议配合第二个视频一起看，单看这个容易误解第5分钟那个操作",
+    "time": "5小时前",
+    "location": "上海",
+    "likes": 342,
+    "reply_to": null
+  },
+  {
+    "username": "细节控",
+    "content": "补充一个冷知识：这个算法在2018年的论文里其实被证伪过，作者可能没注意到后续研究",
+    "time": "1天前",
+    "location": "广东",
+    "likes": 89,
+    "reply_to": null
+  },
+  {
+    "username": "质疑者",
+    "content": "@原作者 3分20秒的数据来源是哪里？我查了下原报告好像不是这个数",
+    "time": "3小时前",
+    "location": "浙江",
+    "likes": 56,
+    "reply_to": "原作者"
+  }
+]
