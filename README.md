@@ -213,6 +213,7 @@ ONNX Runtime 直接加载本地模型，全程无网络调用。相比 Python �
 
 | 文档 | 内容 |
 |---|---|
+| [`docs/LESSONS.md`](docs/LESSONS.md) | 经验教训库：七次转折点的完整记录 + 9 条可迁移教训 + 自检清单 |
 | [`docs/ENGINEERING_LOG.md`](docs/ENGINEERING_LOG.md) | 工程日志：时间线、关键决策、踩过的坑与修复 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 分层架构、模块职责、接口契约、执行流程、决策矩阵 |
 | [`docs/TOKENIZER_ALIGNMENT.md`](docs/TOKENIZER_ALIGNMENT.md) | 故障复盘：分词器与模型 ID 空间错位（静默正确性缺陷的定位与修复方案） |
