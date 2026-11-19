@@ -213,10 +213,21 @@ ONNX Runtime 直接加载本地模型，全程无网络调用。相比 Python �
 
 | 文档 | 内容 |
 |---|---|
+| [`docs/ENGINEERING_LOG.md`](docs/ENGINEERING_LOG.md) | 工程日志：时间线、关键决策、踩过的坑与修复 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 分层架构、模块职责、接口契约、执行流程、决策矩阵 |
 | [`docs/TOKENIZER_ALIGNMENT.md`](docs/TOKENIZER_ALIGNMENT.md) | 故障复盘：分词器与模型 ID 空间错位（静默正确性缺陷的定位与修复方案） |
 | [`models/README.md`](models/README.md) | 模型获取与张量接口要求 |
 | [`data/README.md`](data/README.md) | 配置字段与模板格式 |
+
+### 生成 API 文档
+
+```bash
+doxygen Doxyfile
+```
+
+输出到 `docs/html/index.html`（约 700 个文件 / 4 MB，只覆盖本项目自有源码，含类层次图与依赖图）。
+
+该目录**不纳入版本库**——生成物应能随时从源码重建，否则难免出现"文档比代码陈旧"的情况。
 
 ---
 

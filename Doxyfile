@@ -1,39 +1,61 @@
-PROJECT_NAME           = "视频智能筛选工具"
-OUTPUT_DIRECTORY       = docs
-INPUT                  = ./src ./VideoFilteringCore ./QtFloatingBall
-RECURSIVE              = YES
-WARNINGS               = NO
+# Doxygen 配置 —— 只为「本项目自有源码」生成文档
+#
+# 用法：在仓库根目录执行    doxygen Doxyfile
+# 输出：docs/html/index.html
+#
+# ⚠️ 历史教训（详见 docs/TOKENIZER_ALIGNMENT.md 的同类记录）
+#    旧配置用 EXCLUDE = ./onnx ./sentencepiece 这类**相对路径**，而 EXCLUDE 的路径
+#    是相对 doxygen 运行目录解析的。当时在 QtFloatingBall/ 下运行，第三方库实际位于
+#    VideoFilteringCore/onnx、VideoFilteringCore/nlohmann，于是排除规则一条都没生效，
+#    结果把 12,533 页第三方库文档（sentencepiece / protobuf / nlohmann）全收了进来，
+#    产出膨胀到 18,016 个文件 / 250 MB，而其中属于本项目的仅 436 页 / 2.6 MB。
+#    现在改用 EXCLUDE_PATTERNS（通配符，匹配任意层级），不受运行目录影响。
 
+PROJECT_NAME           = "视频评论智能筛选工具"
+PROJECT_BRIEF          = "Qt 悬浮球 UI + VideoFilteringCore 语义筛选引擎"
+OUTPUT_DIRECTORY       = docs
+INPUT                  = .
+RECURSIVE              = YES
+FILE_PATTERNS          = *.cpp *.h *.hpp
+QUIET                  = NO
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_IF_DOC_ERROR      = YES
+
+# ===== 只排除第三方与构建产物（通配符匹配任意层级）=====
+EXCLUDE_PATTERNS       = */onnx/* \
+                         */sentencepiece/* \
+                         */nlohmann/* \
+                         */include/* \
+                         */build/* \
+                         */build_probe/* \
+                         */x64/* \
+                         */docs/*
+EXCLUDE                = ./build ./build_probe
+EXCLUDE_SYMBOLS        = std::* Qt::* onnxruntime::* Ort::* nlohmann::* absl::*
+
+# ===== 输出 =====
 GENERATE_HTML          = YES
 GENERATE_LATEX         = NO
-
-# Graphviz 强制全开所有架构总图
-HAVE_DOT               = YES
-DOT_PATH               = "C:/Program Files/Graphviz/bin"
-UML_LOOK               = YES
-
-# 【强制生成！你找不到的页面就是没开这几个】
-DIRECTORY_GRAPH        = YES
-GRAPHICAL_HIERARCHY    = YES
-CLASS_DIAGRAMS         = YES
-INCLUDE_GRAPH          = YES
-COLLABORATION_GRAPH    = YES
-
-CALL_GRAPH             = YES
-CALLER_GRAPH           = NO
-
-MAX_DOT_GRAPH_DEPTH    = 3
-DOT_GRAPH_MAX_NODES    = 60
-
-# 【核心：零门槛出图，不隐藏任何业务类】
+HTML_OUTPUT            = html
+GENERATE_TREEVIEW      = YES
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
 EXTRACT_ALL            = YES
 EXTRACT_PRIVATE        = NO
 HIDE_UNDOC_CLASSES     = NO
 HIDE_UNDOC_MEMBERS     = NO
 
-# 【终极净化：彻底删掉垃圾目录】
-EXCLUDE                = ./out ./build ./debug ./release ./CMakeFiles ./3rdparty ./onnx ./sentencepiece
-
-FILE_PATTERNS          = *.cpp *.h *.hpp
-
-EXCLUDE_SYMBOLS        = std::* Qt::* onnxruntime::* Ort::* nlohmann::* absl::*
+# ===== 结构图 =====
+HAVE_DOT               = YES
+DOT_PATH               = "C:/Program Files/Graphviz/bin"
+UML_LOOK               = YES
+CLASS_DIAGRAMS         = YES
+GRAPHICAL_HIERARCHY    = YES
+DIRECTORY_GRAPH        = YES
+INCLUDE_GRAPH          = YES
+COLLABORATION_GRAPH    = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = NO
+MAX_DOT_GRAPH_DEPTH    = 3
+DOT_GRAPH_MAX_NODES    = 60

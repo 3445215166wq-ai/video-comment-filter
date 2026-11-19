@@ -84,6 +84,10 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
+# ===== Doxygen 生成物（可随时重生成，见 Doxyfile）=====
+# 不纳入版本库：避免文档比源码陈旧（旧版本曾收录 12,533 页第三方文档 / 250MB）
+docs/html/
+
 # ===== 日志与临时文件 =====
 *.log
 videodemo_debug.txt
