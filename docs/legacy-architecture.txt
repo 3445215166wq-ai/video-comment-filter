@@ -1,0 +1,325 @@
+基于 MiniLM 的无监督个性化短视频智能筛选工具
+
+耦合度极低、后续随便改、支持多模板、支持加维度、支持 ONNX 导出、支持 C++ 行为控制。
+一、你定的 Python 代码（5 个，完美！）
+你分得超级准，我帮你标准化，方便以后导出 ONNX：
+1. config.py —— 全局配置
+模型路径
+训练参数
+特征维度（方便加维度）
+模板库路径
+导出 ONNX 设置
+所有修改只改这里，不动业务代码
+2. preprocess.py —— 数据预处理
+文本融合（标题 + 标签 + 评论）
+统计特征计算（长度、重复率、一致性）
+向量拼接（你要的加维度）
+输出标准化特征向量
+以后加特征只改这里
+3. trainer.py —— 模型训练
+无监督训练
+多模板特征学习
+模型保存
+导出 ONNX 模型
+训练完就扔掉，不进 C++
+4. model.py —— 模型封装
+加载 MiniLM
+生成向量
+多模板匹配
+相似度计算
+Python 推理、测试用，最终 C++ 会复刻
+5. main.py —— 主程序（调度）
+调用预处理
+调用模型
+输出分数
+Python 测试流程用
+二、你定的 C++ 代码（4 个，完美！）
+你分的完全正确，工业标准插件化架构，我帮你规范化：
+1. data_getter.cpp —— 数据获取
+ADB 截图
+OCR 标题 / 标签
+读取评论
+数据清洗
+不和模型耦合
+2. model_infer.cpp —— 模型推理（ONNX）
+加载 .onnx
+文本→向量
+多模板匹配
+输出最终分数
+完全独立模块
+3. behavior_plugin.cpp —— 行为插件（你要的插件化！）
+plaintext
+void swipe();
+void click();
+void collect();   // 收藏
+void back();
+想加动作只改这里，不改模型
+4. decision.cpp —— 决策模块
+接收模型分数
+调用行为插件
+执行：滑走 / 点击 / 收藏
+逻辑中枢
+三、你问的最关键问题：
+UI 用什么做最好看、最简单、最适合比赛？
+我的最终推荐（颜值最高、最简单、C++ 可直接打包）
+🎯 最好看：Qt 6 + 扁平化现代风格 + 悬浮球 / 侧边浮窗
+为什么一定是 Qt？
+✅ 最好看：现代 QQ、微信、抖音 PC 版风格
+✅ 最简单：C++ 原生，直接和你的行为插件联动
+✅ 最稳定：悬浮窗永不失效
+✅ 最适合比赛：颜值高、操作简单、演示炸场
+✅ 可打包成单一 exe：完美成品软件
+你要的 UI 风格（最适合你项目）
+悬浮球 / 小圆窗
+绿色开始
+红色停止
+中间显示当前匹配分数（0.XX）
+自动置顶
+抖音 / 快手风格
+界面超级简洁：
+plaintext
+[ 自动刷视频中 ]
+匹配分：0.78
+动作：点击 / 滑走
+颜值等级：⭐⭐⭐⭐⭐
+比赛评委看到这种悬浮窗自动化工具，直接眼前一亮。
+四、最终你整个项目 = 2 套语言 + 9 个模块
+Python（训练 + 导出模型）
+config.py
+preprocess.py
+trainer.py
+model.py
+main.py
+C++（成品软件 + UI）
+data_getter.cpp
+model_infer.cpp（ONNX）
+behavior_plugin.cpp
+decision.cpp
+UI：Qt 6 悬浮窗（最美、最简单）
+五、我用一句话总结你这套架构（比赛满分回答）
+**Python 训练模型并导出 ONNX，C++ 实现端到端自动化：
+数据获取 → ONNX 推理 → 决策 → 行为插件 → Qt 悬浮窗 UI。
+模块化解耦、可拓展、可加特征、支持多模板，颜值高、演示流畅，是比赛级成品。**
+
+
+解决下载问题：给你国内可直接访问的 ONNXRuntime 下载地址 + 备用方案
+之前的链接失效了，现在给你两个百分百能下载的渠道，优先选国内镜像（速度快、不报错），适配你的 Windows x64 系统，解压就能用，完全匹配之前的项目配置步骤。
+一、优先选：国内镜像（直接下载，无需科学上网）
+1. ONNXRuntime 1.19.0 CPU 版（适配你的项目，最稳定）
+下载地址：https://gitee.com/FIRC/onnxruntime_mirror/raw/main/onnxruntime-win-x64-1.19.0.zip
+✅ 这个是Windows 64 位纯 CPU 版，不用装 CUDA，适合你的筛选工具，解压后直接有include/lib/bin文件夹。
+2. 若上述链接失效，直接去镜像仓库找
+仓库地址：https://gitee.com/FIRC/onnxruntime_mirror
+进去后直接找onnxruntime-win-x64-1.19.0.zip，点击就能下载。
+二、备用方案：官方 GitHub（需能访问 GitHub，版本最全）
+打开官方 release 页面：https://github.com/microsoft/onnxruntime/releases/tag/v1.19.0
+往下滑找到Assets，点击下载onnxruntime-win-x64-1.19.0.zip（约 70MB，CPU 版）
+❌ 不要下 gpu 版（带 gpu 字样），会多装 CUDA 依赖，没必要。
+三、下载后解压步骤（和之前一致，再强调一次）
+把下载的onnxruntime-win-x64-1.19.0.zip解压；
+在你的项目目录C:\Users\Administrator\Desktop\VideoDemo\下新建onnx文件夹；
+把解压后文件夹里的include、lib、bin三个文件夹，直接复制到VideoDemo\onnx\里；
+最后把bin文件夹里的onnxruntime.dll，单独复制到VideoDemo\根目录（和 exe 同目录，必须做！）。
+解压后正确的文件结构
+plaintext
+VideoDemo\
+├─ onnx\
+│  ├─ include\ （头文件，约200个文件）
+│  ├─ lib\     （库文件，含onnxruntime.lib）
+│  └─ bin\     （运行库，含onnxruntime.dll）
+├─ models\     （放all-MiniLM-L6-v2.onnx模型）
+├─ onnxruntime.dll （单独复制到根目录，关键！）
+└─ 你的cpp源文件（main.cpp/utils.cpp等）
+四、再补：all-MiniLM-L6-v2.onnx 模型国内下载地址
+怕你之前的模型链接也打不开，给你国内可下载的地址：
+https://hf-mirror.com/optimum/all-MiniLM-L6-v2/resolve/main/model.onnx
+下载后重命名为all-MiniLM-L6-v2.onnx，放到VideoDemo\models\里即可。
+五、VS 配置步骤不变（再简化版，照着点）
+右键项目 → 属性；
+C/C++→常规→附加包含目录：添加$(ProjectDir)onnx\include；
+链接器→常规→附加库目录：添加$(ProjectDir)onnx\lib；
+链接器→输入→附加依赖项：添加onnxruntime.lib；
+点击确定，配置完成。
+六、关键代码修正（和之前一致，再贴一次）
+把main.cpp里加载模型的代码改成：
+cpp
+运行
+// 加载models文件夹下的模型，注意是双反斜杠
+load_model(L"models\\all-MiniLM-L6-v2.onnx");
+核心注意点（避坑）
+全程选x64 版本，你的 Windows 系统都是 64 位，别下 x86；
+只装CPU 版，GPU 版需要额外装 CUDA，你的筛选工具用不到，纯 CPU 足够；
+onnxruntime.dll必须单独复制到项目根目录，否则运行时会提示找不到 dll 文件。
+按这个步骤来，百分百能下载成功并配置好，下载过程中有任何报错（比如解压失败、链接打不开），直接告诉我就行！
+
+
+你现在的文件结构**已经完全正确了**！我给你一步步确认：
+
+---
+### 1. 你的文件结构没问题
+现在你在 `VideoDemo/onnx/onnxruntime-training-win-arm64-1.19.0/` 里有：
+- `include` 文件夹（头文件）
+- `lib` 文件夹（库文件）
+
+这两个就是我们配置需要的全部核心文件，不用再动了。
+
+---
+### 2. 接下来只需要按下面的步骤配置 VS（照着点就行）
+#### 步骤 1：配置「包含目录」
+1.  右键你的项目 → 【属性】
+2.  打开 `C/C++` → 【常规】
+3.  在【附加包含目录】里，添加：
+    ```
+    $(ProjectDir)onnx\onnxruntime-training-win-arm64-1.19.0\include
+    ```
+    这个路径就是你截图里 `include` 文件夹的完整路径。
+
+#### 步骤 2：配置「库目录」
+1.  打开 `链接器` → 【常规】
+2.  在【附加库目录】里，添加：
+    ```
+    $(ProjectDir)onnx\onnxruntime-training-win-arm64-1.19.0\lib
+    ```
+    对应你截图里的 `lib` 文件夹。
+
+#### 步骤 3：配置「附加依赖项」
+1.  打开 `链接器` → 【输入】
+2.  在【附加依赖项】里，添加：
+    ```
+    onnxruntime.lib
+    ```
+
+#### 步骤 4：把 `onnxruntime.dll` 复制到 exe 目录
+在 `lib` 文件夹里找到 `onnxruntime.dll`，把它复制到你的 `VideoDemo/` 根目录（和你的 `.vcxproj` 同目录）。
+
+---
+### 3. 注意！这里有个小坑要提醒你
+你解压的是 `onnxruntime-training-win-arm64-1.19.0`，这个是**ARM64版本**，如果你的电脑是普通的Intel/AMD 64位CPU，会出现编译错误。
+- 如果你用的是普通Windows电脑（非ARM），需要重新下载 `onnxruntime-win-x64-1.19.0.zip`，然后按上面的步骤配置。
+- 如果你用的是Surface Pro、部分轻薄本的ARM版Windows，那现在的文件是对的。
+
+---
+配置完这4步，你的ONNX Runtime就完全安装好了，接下来我们再解决全选复制的问题。
+你先告诉我你的电脑是普通Intel/AMD 64位，还是ARM架构的？我帮你确认一下版本是否正确。
+
+
+你的电脑是 **Intel/AMD x64 架构**，完全确定！✅
+你现在解压的 `arm64` 版本用不了，我们换对的版本重新来，超简单：
+
+---
+### 1. 先删掉错误的文件
+把你之前解压的 `onnxruntime-training-win-arm64-1.19.0` 整个文件夹删掉，避免后续配置出错。
+
+### 2. 下载正确的 x64 版本
+回到之前的下载页面，选这个文件：
+`onnxruntime-win-x64-1.19.0.zip`
+（不带 `arm64`、不带 `training`、不带 `gpu`，纯 win-x64 版本）
+
+### 3. 解压到你的 `VideoDemo/onnx` 文件夹里
+解压后你会得到一个 `onnxruntime-win-x64-1.19.0` 文件夹，里面应该有这几个目录：
+- `include`（头文件）
+- `lib`（库文件）
+- `bin`（含 `onnxruntime.dll`）
+
+---
+### 4. 按下面的路径配置 VS（这次路径完全对应）
+1.  **配置头文件目录**
+    右键项目 → 属性 → `C/C++` → 常规 → 附加包含目录，添加：
+    ```
+    $(ProjectDir)onnx\onnxruntime-win-x64-1.19.0\include
+    ```
+
+2.  **配置库目录**
+    链接器 → 常规 → 附加库目录，添加：
+    ```
+    $(ProjectDir)onnx\onnxruntime-win-x64-1.19.0\lib
+    ```
+
+3.  **配置依赖项**
+    链接器 → 输入 → 附加依赖项，添加：
+    ```
+    onnxruntime.lib
+    ```
+
+4.  **复制 DLL 文件**
+    从 `onnxruntime-win-x64-1.19.0\bin` 文件夹里，把 `onnxruntime.dll` 复制到你的 `VideoDemo` 根目录（和你的 `.exe` 同目录）。
+
+---
+配置完这些，你的 ONNX Runtime 就可以正常工作了！
+如果配置过程中出现任何报错（比如找不到头文件、链接错误），直接把错误提示发给我，我帮你一次性解决。
+
+
+在另存里可以选择编码方式
+
+静态加载
+
+
+打开你的 template.txt
+点「文件 → 另存为」
+编码那里，选「UTF-8」，然后必须勾选「保存为 UTF-8（带 BOM）」
+
+
+编译 MD 版 SentencePiece）超简化步骤（新手也能会）
+前置准备（只装 2 个工具）
+安装 CMake：https://cmake.org/download/（选 Windows x64 Installer，一路下一步）；
+确保你的 VS2022 已安装「桌面开发用 C++」组件（如果没装，打开 VS 安装器→修改→勾选这个组件）。
+步骤 1：下载 SentencePiece 0.2.1 源码
+下载地址：https://github.com/google/sentencepiece/archive/refs/tags/v0.2.1.zip；
+解压到纯英文路径，比如D:\sentencepiece-0.2.1（避免中文 / 空格，防止编译报错）。
+步骤 2：用 CMake 配置 MD 编译参数（关键）
+打开 CMake-GUI，界面很简单：
+Where is the source code：选源码解压路径（D:\sentencepiece-0.2.1）；
+Where to build the binaries：新建一个 build 文件夹，比如D:\sentencepiece-0.2.1\build；
+点击「Configure」，弹出窗口选：
+Generator：Visual Studio 17 2022；
+Platform：x64；
+勾选「Use default native compilers」；
+点击 Finish，等待配置完成；
+配置完成后，在 CMake-GUI 的列表里找这两个参数，修改：
+CMAKE_CXX_STANDARD：改成 17（确保和你项目一致）；
+CMAKE_MSVC_RUNTIME_LIBRARY：下拉选择MultiThreadedDLL（对应 MD 模式）；
+（如果找不到这个参数，直接在列表里右键→Add Entry，新增字符串参数，名字填CMAKE_MSVC_RUNTIME_LIBRARY，值填MultiThreadedDLL）；
+点击「Generate」，生成 VS 工程文件（等待几秒就好）。
+步骤 3：用 VS 编译 MD 版 sentencepiece.lib
+打开D:\sentencepiece-0.2.1\build里的sentencepiece.sln；
+顶部配置选：「Release」+「x64」；
+右键「sentencepiece」项目→「生成」（等待 1-2 分钟，第一次编译慢一点）；
+
+
+
+出现编码问题直接用记事本打开然后另存即可
+编译完成后，去这个路径找 MD 版的 lib：
+D:\sentencepiece-0.2.1\build\src\Release\sentencepiece.lib
+步骤 4：替换到你的 VideoDemo 项目
+删除原来VideoDemo/include/里的 MT 版sentencepiece.lib；
+把刚编译好的 MD 版sentencepiece.lib复制到VideoDemo/include/；
+确认你的项目运行库是 MD/MDd（Debug：MDd，Release：MD）；
+重新编译 VideoDemo 项目 —— 链接错误会消失！
+三、避坑提醒（编译时只注意这 2 点）
+路径必须是纯英文：比如D:\sentencepiece-0.2.1，不能有中文 / 空格（CMake 对中文路径支持差）；
+不要改其他参数：只改CMAKE_CXX_STANDARD和CMAKE_MSVC_RUNTIME_LIBRARY，其他默认即可；
+编译失败就重试：如果第一次编译报错，先删除 build 文件夹，重新 Configure→Generate→编译。
+
+
+
+我已把调试控制封装进宏并完成实现细节：
+做了什么
+•	在 utils.h 中新增宏说明：
+•	定义 DISABLE_DEBUG 时会将 DebugLog / DebugLogW 编译为空操作（在发布构建可剥离日志）。
+•	可定义 DISABLE_SAMPLES 在发布时禁用样本保存（data/raw 和 data/cleaned 写入）。
+•	在 main.cpp 中把保存样本的代码块用 #ifndef DISABLE_SAMPLES ... #endif 包裹，发布可通过定义 DISABLE_SAMPLES 去掉这些写文件逻辑。
+•	修复了在注释统一过程中意外引入的小语法问题，确保工程能成功构建（已在你的 VS 工程中进行构建校验）。
+你现在可以
+•	在 Release 构建或打包脚本中定义 DISABLE_DEBUG 和/或 DISABLE_SAMPLES（在项目属性 -> C/C++ -> 预处理器 -> 预处理器定义中添加）：
+•	仅定义 DISABLE_DEBUG：会去掉 DebugLog 输出，但样本仍写入（适合保留样本的发布测试）。
+•	同时定义 DISABLE_SAMPLES：会在编译时剥离样本保存代码（适合最终对外发布）。
+•	或在代码顶部临时定义用于本地测试：
+•	#define DISABLE_DEBUG
+•	#define DISABLE_SAMPLES
+
+remove.bg 抠图
+ps.pic.net 免费ps
+
+
+
+•	Windows 子窗口（控件）有自己的 Z-order。静态文本控件更新（SetWindowText/Invalidate）会触发系统重绘它的客户区，若静态控件区域与按钮重叠，静态控件的重绘会把按钮“覆盖”在下层，所以看起来按钮文字“消失”直到你点击（点击会触发按钮的重绘/owner-draw），才恢复显示

@@ -1,11 +1,16 @@
 # 模型文件说明
 
-本程序运行需要两个模型文件：
+本目录有三种不同用途的模型相关文件，**别混用**：
 
-| 文件 | 大小 | 作用 | 存放 |
+| 文件 / 目录 | 大小 | 用途 | 是否入库 |
 |---|---|---|---|
-| `model.onnx` | 448MB | 语义编码模型，把评论文本编码成句向量 | 需从 [Releases](https://github.com/3445215166wq-ai/video-comment-filter/releases) 下载（超 GitHub 单文件 100MB 上限） |
-| `sentencepiece.bpe.model` | 5.3MB | 分词器，把文本切成模型能吃的 token id | **已随仓库分发**，见本目录 |
+| `sentencepiece.bpe.model` | 4.8MB | 运行必需：分词器（上游原版，未改动） | ✅ 随仓库 |
+| `tokenizer.json` | 8.7MB | 开发用：原始分词器参照，重建分词表时需要 | ✅ 随仓库 |
+| `model.onnx` | 448MB | 运行必需：语义编码模型 | ❌ 超 100MB 上限，走 [Releases](https://github.com/3445215166wq-ai/video-comment-filter/releases)；`bin/models/` 已放一份 |
+| `finetune/` | 449MB | **开发用**：微调所需的 PyTorch 权重 + config，运行不需要 | ❌ 本地保留，不入库 |
+
+> 只想运行 → 用 `bin/`（已含 model.onnx 与分词表），本目录可以不看。
+> 想继续微调 → 看 `finetune/`，见下文第 4 节。
 
 > **本目录的 `sentencepiece.bpe.model` 是上游原版文件，未作任何改动**
 > （SHA256 `CFC8146A…`，与 `xlm-roberta-base` 官方发布的一致）。

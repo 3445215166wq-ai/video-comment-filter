@@ -4,8 +4,9 @@
 
 全程本地推理，**无任何网络请求，数据不出设备**。
 
-> **`model.onnx`（448MB）不随仓库分发**（超出 GitHub 单文件 100MB 限制），请从 [Releases](https://github.com/3445215166wq-ai/video-comment-filter/releases) 下载后放入 `models/` 目录。
-> 分词表 `sentencepiece.bpe.model`（5.3MB）已随仓库提供，无需另行获取。详见 [`models/README.md`](models/README.md)。
+> **想直接运行**：双击 `bin\QtFloatingBall.exe` 即可（该目录已含 exe、Qt 运行时、模型与配置）。
+>
+> **从源码构建**：见[构建](#构建)。`model.onnx`（448MB）不随仓库分发，见 [`models/README.md`](models/README.md)。
 
 ## 界面
 
@@ -106,36 +107,59 @@
 
 ## 目录结构
 
+本仓库把「可运行成品 / 源码 / 文档 / 工具」放在同一个目录下，克隆后一处即可看全貌。
+
 ```
 .
-├── CMakeLists.txt                  # CMake 构建脚本（等价于 .sln）
+├── bin/                            # ★ 可直接双击运行的成品（本地生成，不入库）
+│   ├── QtFloatingBall.exe
+│   ├── Qt6Core/Gui/Widgets.dll     # Qt 运行时
+│   ├── onnxruntime.dll (+providers_shared)
+│   ├── platforms/qwindows.dll
+│   ├── models/                     # model.onnx + sentencepiece.bpe.model
+│   └── data/                       # config.json + 语义模板
+│
+├── CMakeLists.txt                  # CMake 构建脚本
 ├── QtFloatingBall.sln              # Visual Studio 解决方案（主构建入口）
 ├── QtFloatingBall.vcxproj          # UI 表现层工程
 ├── main_videofiltering.cpp         # 程序入口
 ├── VideoFilteringWidget.cpp/.h     # 悬浮球主窗口
 │
-├── VideoFilteringCore/             # 核心引擎层（静态库）
+├── VideoFilteringCore/             # 核心引擎层（静态库，无 Qt 依赖）
 │   ├── VideoFilteringCore.vcxproj
 │   ├── application/                # 接口 + 业务编排 + 配置 + 状态 + 调度
 │   ├── core/                       # 多实例语义匹配策略
 │   ├── clean/                      # 评论文本清洗与解析
-│   ├── model/                      # ONNX 推理 + SentencePiece 分词
+│   ├── model/                      # ONNX 推理 + SentencePiece 分词（含 offset 补偿）
 │   ├── utils/                      # 剪贴板/文件/输入/日志/数学工具
 │   ├── include/                    # 第三方头文件 + sentencepiece.lib
 │   ├── nlohmann/                   # json.hpp
 │   └── onnx/                       # ONNX Runtime SDK（头文件 + 导入库 + DLL）
 │
-├── data/                           # 配置与语义模板（含示例）
-│   ├── config.json
-│   ├── positive_templates/
-│   └── negative_templates/
+├── data/                           # 源码侧的配置与模板样例
 │
-├── models/                         # 分词表（随仓库）+ 语义模型（Release 获取）
-│   ├── sentencepiece.bpe.model
+├── models/                         # 分词表与模型相关材料
+│   ├── sentencepiece.bpe.model     # 上游原版分词表（随仓库）
+│   ├── tokenizer.json              # 原始分词器参照（重建分词表要用）
+│   ├── finetune/                   # 微调用 PyTorch 权重 + config（本地，不入库）
 │   └── README.md
 │
-└── docs/                           # 架构文档与界面设计图
+├── docs/                           # 文档与可视化
+│   ├── ARCHITECTURE.md             # 说明：架构、接口契约、执行流程
+│   ├── ENGINEERING_LOG.md          # 复盘：时间线
+│   ├── TOKENIZER_ALIGNMENT.md      # 复盘：分词偏移事故完整调查
+│   ├── LESSONS.md                  # 复盘：可迁移教训 + 自检清单
+│   ├── legacy-architecture.txt     # 历史：早期的架构笔记
+│   ├── images/ui-design.jpg        # 可视化：UI 设计图
+│   └── html/                       # 可视化：Doxygen 类层次图/依赖图（本地生成）
+│
+└── tools/                          # 辅助工具
+    ├── rebuild_sentencepiece_model.py
+    ├── spm_probe.cpp
+    └── CMakeLists.txt
 ```
+
+> `bin/`、`models/finetune/`、`docs/html/`、`build*/` 均为本地生成物，已在 `.gitignore` 中排除。
 
 ---
 
@@ -168,18 +192,31 @@ CMake 使用 `AUTOMOC` 自动处理 Qt 元对象，不依赖 VS 扩展。
 
 ---
 
-## 运行准备
+## 运行
 
-1. 编译产物位于 `x64\Release\`（或 `build\Release\`）
-2. 按 [`models/README.md`](models/README.md) 获取两个模型文件
-3. 把 `models/` 和 `data/` 目录复制到可执行文件同级目录
-4. 若在未安装 Qt 环境的机器上运行，用 `windeployqt` 补齐 Qt 运行时：
+### 方式一：直接运行（最简单）
+
+```
+双击 bin\QtFloatingBall.exe
+```
+
+`bin/` 已包含全部运行所需：exe、Qt 运行时、ONNX Runtime、`models/`、`data/`。
+启动后按 `F8` 唤出悬浮球。
+
+### 方式二：从源码构建后部署
+
+1. 构建（见上一节），产物位于 `build\Release\` 或 `x64\Release\`
+2. 按 [`models/README.md`](models/README.md) 准备 `model.onnx` 与分词表
+3. 把 exe 放到一个目录下，同级放好 `models/`、`data/`，并补齐运行时：
 
    ```bash
+   # Qt 运行时
    C:\Qt\6.11.0\msvc2022_64\bin\windeployqt.exe QtFloatingBall.exe
+   # ONNX Runtime（构建后会自动复制，若手动部署则拷这两个）
+   copy onnxruntime.dll onnxruntime_providers_shared.dll <目标目录>
    ```
 
-5. 双击运行，按 `F8` 唤出悬浮球
+   现成的 `bin/` 就是这样组装出来的，可直接参照其结构。
 
 ---
 

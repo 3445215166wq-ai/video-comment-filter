@@ -61,12 +61,17 @@ ui_*.h
 # ===== 模型文件 =====
 # model.onnx（448MB）超出 GitHub 单文件 100MB 上限，走 Release 附件获取
 models/*.onnx
-# 分词表（约 5.3MB）由 tools/rebuild_sentencepiece_model.py 从原始 tokenizer.json 重建，
-# 顺序与模型 embedding 行号严格对齐，随仓库分发
+# 分词表（约 4.8MB）为上游原版，随仓库分发
 models/*.model
 !models/sentencepiece.bpe.model
 # 重建过程中的临时产物
 models/*.fixed
+# 微调用的 PyTorch 权重（448MB），不入库
+models/finetune/
+
+# ===== 本地部署目录（可运行成品：exe + Qt 运行时 + 模型）=====
+# 由源码构建 + 模型组合而成，可随时重建，不入库
+bin/
 
 # ===== 运行期生成的数据 =====
 # data/ 下的 config.json 与 *templates/ 样例随仓库分发，
