@@ -97,7 +97,7 @@
 | 语言 | C++17 |
 | UI | Qt 6.11（Core / Gui / Widgets） |
 | 推理引擎 | ONNX Runtime 1.14.1（CPU，本地离线） |
-| 语义模型 | MiniLM / BERT 结构，SentencePiece 分词 |
+| 语义模型 | 多语言 MiniLM-L12-H384（384 维 / 12 层 / 117.5M 参数 / 250k 词表），配 XLM-R SentencePiece 分词 |
 | 其他依赖 | SentencePiece 0.2.1、nlohmann_json |
 | 平台 | Windows x64 |
 | 构建 | Visual Studio 2022/2026（.vcxproj/.sln）或 CMake |
@@ -184,9 +184,11 @@ CMake 使用 `AUTOMOC` 自动处理 Qt 元对象，不依赖 VS 扩展。
 
 ## 技术亮点
 
-**1. 自研多实例语义匹配算法**
+**1. 语义原型向量匹配**
 
-借鉴多实例学习（MIL）思路：把一组正/负例评论抽象为一个"语义原型向量"，筛选时只需算一次余弦相似度即可判定。相比逐条比对，把单次筛选压到百毫秒级。
+借鉴多实例学习（MIL）思路：把一组正/负例评论经均值池化抽象为一个"语义原型向量"，筛选时只需算一次余弦相似度即可判定，而非逐条比对。配合批量推理，单次筛选在百毫秒级。
+
+> 说明：这是**工程方案**，不是算法层面的新颖性贡献——原型向量取的是模板内各条评论嵌入的算术均值，判别依据是余弦相似度与阈值比较。相关逻辑见 `VideoFilteringCore/core/similarity_policy.cpp`。
 
 **2. 全离线本地推理**
 
@@ -213,6 +215,33 @@ ONNX Runtime 直接加载本地模型，全程无网络调用。相比 Python �
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 分层架构、模块职责、接口契约、执行流程、决策矩阵 |
 | [`models/README.md`](models/README.md) | 模型获取与张量接口要求 |
 | [`data/README.md`](data/README.md) | 配置字段与模板格式 |
+
+---
+
+## 实现分工与 AI 使用说明
+
+本项目为 3 人团队作品。以下说明本人的工作范围，便于评估与核对。
+
+**本人负责**
+
+- **系统架构**：UI 表现层与核心引擎层的分层方案、`VideoFilteringCore` 静态库的边界划定、`IApplicationController` 纯虚接口定义、依赖方向约束
+- **技术选型**：多语言 MiniLM（384 维）搭配 XLM-R SentencePiece 词表，ONNX Runtime 本地离线推理，Qt 6 悬浮球交互
+- **交互设计**：悬浮球两级分层交互、阈值滑轨、全局热键 `F8`、目标窗口绑定流程
+- **三方集成与调试**：Qt 6 / ONNX Runtime / SentencePiece 的编译、链接与运行时打通
+- **问题定位与修复**：见下表
+
+**代码产出方式**
+
+架构、模块划分、接口与交互逻辑由本人确定；具体函数实现使用 AI 辅助生成初稿，再由本人逐块验证、调试与修正。仓库中部分文件保留了生成来源注释（如 `// AI辅助生成：DeepSeek-R1, 2026-4-22`），未作删改。
+
+**本人定位并修复的典型问题**
+
+| 现象 | 根因 | 修法 |
+|---|---|---|
+| 分词器在含中文的路径下加载失败 | SentencePiece `Load()` 接收窄字符路径，Windows 下按 ANSI 码页解析 | 宽字符读取原始字节 + `LoadFromSerializedProto()` |
+| 中文源码编译报 C4819 / C2001 | 源文件为 UTF-8 无 BOM，MSVC 默认按 936 码页解析 | 为相关 target 显式加入 `/utf-8` |
+| 换机器或换目录后无法编译 | 源码与工程文件中硬编码了本机绝对路径 | 统一改为 `$(ProjectDir)` 相对路径 + 按 exe 目录动态解析 |
+| 运行期找不到 `onnxruntime.dll` | 工程未配置构建后复制步骤 | CMake 与 vcxproj 均增加 post-build 复制 |
 
 ---
 

@@ -28,22 +28,49 @@
 
 `model.onnx` 和 `sentencepiece.bpe.model` 是**绑定**的：分词器产出的 token id 必须落在模型词表的编号空间内。换任何一个，token id 就对不上，句向量完全失效，而程序**不会报错**，只会输出垃圾相似度。
 
-因此不能用 "随便找个 MiniLM 模型" 的方式替换。
+因此替换时必须同族配对，不能混搭。
 
-### 本项目实际使用的词表体系
+### 本项目模型的实测规格
 
-`model.onnx` 由 PyTorch 2.5.0 导出（`producer: pytorch`），标准 BERT 结构（`embeddings.word_embeddings` / `embeddings.token_type_embeddings`）。
+以下数值由直接解析 `model.onnx` 的初始张量与推理输出得到，非推测：
 
-`sentencepiece.bpe.model` 检测结果：
-
-| 特殊词元 | 是否使用 |
+| 项 | 实测值 |
 |---|---|
-| `<s>` / `</s>` / `<pad>` / `<unk>` | ✅ 使用（XLM-R 风格） |
-| `[CLS]` / `[SEP]` / `[PAD]` | ❌ 不使用 |
-| `▁` 空格前缀（含 `▁的` 等中文词元） | ✅ 使用 |
+| 总参数量 | 117,505,920（117.5M） |
+| 隐藏维 | **384**（输出 `last_hidden_state` 形状 `[batch, seq, 384]`） |
+| 编码层数 | **12** |
+| `word_embeddings` | (250037, 384) → 词表 250,037 行 |
+| `position_embeddings` | (512, 384) |
+| `token_type_embeddings` | (2, 384) |
+| fp32 理论体积 | 448.2 MB（文件实际 448.5 MB，吻合） |
+| 导出工具 | PyTorch（`producer: pytorch`，图名 `main_graph`） |
 
-结论：**必须使用 SentencePiece / XLM-R 体系的词表**。
-`all-MiniLM-L6-v2`、`bert-base-chinese` 这类 WordPiece（`[CLS]/[SEP]`）模型**不可用**。
+384 维 + 12 层 + 25 万多语言词表 + 117.5M 参数，对应 **多语言 MiniLM-L12-H384** 这一类模型。
+
+文件体积之所以达到 448MB，是因为 `250037 × 384` 的嵌入矩阵本身就占 96M 参数（约 384MB），而不是层数多——这一点常被误判为"BERT-base 量级"。
+
+### 分词表实测结果
+
+| 项 | 实测值 |
+|---|---|
+| 词表规模 | 250,000 个 piece |
+| `<unk>` | id 0（类型 UNKNOWN） |
+| `<s>` | id 1（类型 CONTROL） |
+| `</s>` | id 2（类型 CONTROL） |
+| `<pad>` | **不存在** |
+| `[CLS]` / `[SEP]` / `[PAD]` | 不存在 |
+
+两点结论：
+
+1. 这套 `<s>` / `</s>` 属于 **XLM-R 体系的 SentencePiece**，正是多语言 MiniLM 的原生分词器——**模型与分词表是配套的**，不是错配。
+2. **词表里没有 `<pad>`**，因此 `VideoFilteringCore/model/text_preproc.cpp` 中的 `PieceToId("<pad>")` 会回退到 `<unk>`（id 0），填充实际使用 id 0。由于 `attention_mask` 在填充位置同样置 0，判定结果不受影响；但正文中真实出现的 `<unk>` 词元也会被一并 mask 掉。这是已知的小缺陷。
+
+### 哪些模型可以替换
+
+词表规模必须与模型 `word_embeddings` 的行数一致，且分词器必须同族。
+
+- ✅ 可替换：其他同族多语言 MiniLM（XLM-R 词表，词表规模匹配）
+- ❌ 不可替换：`all-MiniLM-L6-v2`（词表 30522）、`bert-base-chinese`（词表 21128）等 WordPiece `[CLS]/[SEP]` 模型——词表规模与 id 空间都对不上
 
 ---
 
