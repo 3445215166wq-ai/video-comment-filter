@@ -1,380 +1,153 @@
-# 🏗️ 应用架构重构指南
+# 架构说明
 
-## 概述
+## 设计目标
 
-将单体的 `main.cpp` 重构为**微内核架构**，实现 UI 与业务逻辑的完全解耦。
+1. **UI 与算法彻底解耦** —— 更换 UI 不需要碰任何算法代码
+2. **核心层零 Qt 依赖** —— 核心可被任意前端（Qt / 控制台 / 服务）复用
+3. **依赖方向单向无环** —— 编译期即可约束分层，而非靠约定
+4. **离线可用** —— 全部推理在本地完成，不引入任何网络依赖
+
+## 分层总览
 
 ```
-┌─────────────────────────────────────┐
-│   UI Layer                          │
-│  ┌─────────────────────────────────┐│
-│  │ ConsoleUI / WPF UI / Qt UI  │  │  ← 多个 UI 实现
-│  └─────────────────┬───────────────┘│
-└────────────────────┼────────────────┘
-                     │ implements
-┌────────────────────▼────────────────┐
-│ IApplicationController (interface)  │  ← 统一的业务接口
-├─────────────────────────────────────┤
-│ ApplicationService                  │  ← 业务编排
-│  ├─ StateManager                    │
-│  ├─ ConfigurationManager            │
-│  └─ FilterEngine                    │
-├─────────────────────────────────────┤
-│ Domain Layer                        │
-│  ├─ BusinessOps (business logic)   │
-│  ├─ Similarity Policy              │
-│  └─ Filter Engine                  │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  UI 表现层                                                │
+│  main_videofiltering.cpp    程序入口 / 依赖注入            │
+│  VideoFilteringWidget.cpp   悬浮球窗口、面板、滑轨、日志     │
+└────────────────────────┬─────────────────────────────────┘
+                         │ 只认识这个纯虚接口
+┌────────────────────────▼─────────────────────────────────┐
+│  IApplicationController（抽象接口，无实现）                │
+│  状态查询 / 模式与阈值控制 / 循环启停 / 窗口绑定            │
+│  文件管理 / 事件订阅 / 全局热键                             │
+└────────────────────────┬─────────────────────────────────┘
+                         │ 由工厂函数返回实现
+                  CreateApplicationController(exe_dir, data_dir)
+                         │
+┌────────────────────────▼─────────────────────────────────┐
+│  核心引擎层（编译为 VideoFilteringCore.lib，无 Qt 依赖）    │
+│                                                          │
+│  ApplicationService      业务编排，实现上述接口              │
+│   ├─ StateManager        筛选状态 + 变更订阅                │
+│   ├─ ConfigurationManager 配置读写（data/config.json）      │
+│   └─ FilterEngine        单个过滤周期的调度编排              │
+│                                                          │
+│  SimilarityPolicy        多实例语义匹配策略（纯函数）        │
+│  OnnxInferencer          ONNX Runtime 会话 + 批量推理       │
+│  TextPreprocessor        SentencePiece 分词                │
+│  clean/                  评论文本清洗与解析                 │
+│  utils/                  剪贴板 / 文件 / 键盘输入 / 日志 / 数学│
+└────────────────────────┬─────────────────────────────────┘
+                         │
+              ONNX Runtime · SentencePiece · nlohmann_json
 ```
 
----
+## 模块职责
 
-## 核心概念
+| 模块 | 位置 | 职责 |
+|---|---|---|
+| `ApplicationService` | `application/` | 实现 `IApplicationController`；管理过滤线程生命周期；把 UI 操作翻译成对引擎的调用；向上转发状态与日志事件 |
+| `StateManager` | `application/` | 持有 `FilterState`，提供变更订阅（观察者模式），状态一改就通知 UI 并落盘 |
+| `ConfigurationManager` | `application/` | `data/config.json` 的读写与容错（配置损坏时回退默认值） |
+| `FilterEngine` | `application/` | 单次过滤周期的调度：抓取 → 清洗 → 解析 → 编码 → 相似度 → 动作 |
+| `SimilarityPolicy` | `core/` | 纯逻辑：按模式与阈值评估正/负模板相似度，产出 `filter_result`（0=停止，1=滚动） |
+| `OnnxInferencer` | `model/` | ONNX Runtime 会话管理、单条/批量推理、CPU 线程数配置、图优化 |
+| `TextPreprocessor` | `model/` | SentencePiece 分词，输出 `input_ids` / `attention_mask`（长度 128） |
+| `clean/` | `clean/` | 评论原文清洗与结构化解析 |
+| `utils/` | `utils/` | 剪贴板、文件、模拟键盘（滚动动作）、日志、余弦相似度 |
 
-### 1. **IApplicationController** - 业务接口契约
-所有 UI 必须通过此接口与业务交互。
+## 接口契约
+
+`IApplicationController` 按职责分七组方法：
+
+| 分组 | 方法 |
+|---|---|
+| 状态查询 | `GetCurrentState()` |
+| 模式控制 | `SetFilterMode(int)` |
+| 阈值控制 | `SetPositiveThreshold` / `SetNegativeThreshold` / `AdjustPositiveThreshold` / `AdjustNegativeThreshold` |
+| 循环控制 | `StartFilteringLoop` / `StopFilteringLoop` |
+| 窗口绑定 | `SetTargetWindow(title_keyword)` |
+| 文件管理 | `OpenTemplateFolder` / `OpenCommentDataFolder` / `OpenSimilarityCheckFolder` |
+| 事件订阅 | `SubscribeStateChange` / `SubscribeMessage` |
+| 热键与重置 | `RegisterGlobalHotKey(HWND)` / `UnregisterGlobalHotKey` / `ResetToDefaultSettings` |
+
+UI 层**只**通过这个接口工作，看不到 `FilterEngine`、`OnnxInferencer` 等任何具体类型。入口处由工厂函数完成注入：
 
 ```cpp
-class IApplicationController {
-    // 查询
-    FilterState GetCurrentState();
+// main_videofiltering.cpp
+std::wstring exeDir  = QCoreApplication::applicationDirPath().toStdWString();
+std::wstring dataDir = exeDir + L"/data";
 
-    // 命令
-    void SetFilterMode(int mode);
-    void StartFilteringLoop();
-    void StopFilteringLoop();
-
-    // 事件订阅
-    void SubscribeStateChange(Callback cb);
-    void SubscribeMessage(Callback cb);
-};
+auto ctrl = CreateApplicationController(exeDir, dataDir);   // 只返回接口指针
+std::shared_ptr<IApplicationController> controller(std::move(ctrl));
+VideoFilteringWidget widget(controller);                    // UI 依赖注入
 ```
 
-**优势**：
-- UI 与业务彻底解耦
-- 可以有多个 UI 实现（Console、WPF、Qt、Web）
-- 业务逻辑独立演进
+## 筛选执行流程
 
-### 2. **StateManager** - 观察者模式的状态管理
-取代全局的 `FilterConfig` 原子变量。
+`FilterEngine::ExecuteFilterCycle()` 是单次周期的主干：
 
-```cpp
-class StateManager {
-    // 写操作自动通知订阅者
-    void SetMode(int mode);
-    void SetPositiveThreshold(float value);
-
-    // 读操作
-    FilterState GetState();
-
-    // 观察者注册
-    void Subscribe(Callback cb);
-};
+```
+① 抓取    绑定目标窗口，取评论（utils/ 剪贴板与键盘自动化）
+② 清洗    clean/ 去除噪声、切分条目
+③ 解析    结构化评论对象；record_data 为真时落盘到 data/raw、data/cleaned、data/parser
+④ 编码    TextPreprocessor 分词 → OnnxInferencer 批量推理（一次 batch，非逐条）
+⑤ 匹配    SimilarityPolicy：对每个模板组求均值嵌入，算余弦相似度
+⑥ 动作    decision = 0 停止 / 1 滚动下一个
 ```
 
-**优势**：
-- 状态变化自动通知所有观察者
-- UI 可以实时反应状态变化（如禁用/启用按钮）
-- 类型安全，避免原子操作的复杂性
+第 ④ 步是性能关键：评论按批送入同一次 `Run()`，而非逐条推理。
 
-### 3. **ConfigurationManager** - 配置持久化
-独立管理配置的序列化/反序列化。
+## 决策矩阵
 
-```cpp
-class ConfigurationManager {
-    FilterState LoadConfig();
-    void SaveConfig(const FilterState& state);
-};
+`SimilarityPolicy::Evaluate()` 按"负向优先"的顺序裁决：
+
+| 启用模式 | 负向命中 | 正向命中 | 结果 |
+|---|---|---|---|
+| 仅负向（`mode & 2`） | 是 | — | **0 停止** |
+| 仅负向（`mode & 2`） | 否 | — | 1 滚动 |
+| 双向（`mode == 3`） | 是 | 不检测 | **0 停止**（短路，省一次正向计算） |
+| 双向（`mode == 3`） | 否 | 是 | **0 停止** |
+| 双向（`mode == 3`） | 否 | 否 | 1 滚动 |
+| 仅正向（`mode & 1`） | 不检测 | 是 | **0 停止** |
+| 仅正向（`mode & 1`） | 不检测 | 否 | 1 滚动 |
+| 未启用任何模式 | — | — | 0 停止 |
+
+"多实例"体现在第 ⑤ 步：一个模板 JSON 内含**一组**示例评论，先各自编码再取均值，得到一个语义原型向量，评论只需与它算一次余弦相似度。
+
+## 线程模型
+
+- **UI 线程**：Qt 事件循环，响应悬浮球交互与全局热键
+- **过滤线程**：`StartFilteringLoop()` 启动，按周期重复 `ExecuteFilterCycle()`
+- **推理互斥**：`OnnxInferencer` 内部 `std::mutex` 保护会话，批量与单条推理不会并发进入同一个 `OrtSession`
+
+状态变更通过 `StateManager` 的订阅回调抛回 UI 线程，UI 不与引擎共享可变状态。
+
+## 构建产物关系
+
+```
+VideoFilteringCore (STATIC)  ──►  QtFloatingBall.exe
+        │                              │
+        │ 链接                          │ 链接
+        ├─ sentencepiece.lib           ├─ Qt6::Core / Gui / Widgets
+        └─ onnxruntime.lib             └─ onnxruntime.lib
+                     │
+                     └─ 构建后自动复制 onnxruntime.dll 到输出目录
 ```
 
-**优势**：
-- 配置管理逻辑集中
-- 易于支持多格式（JSON、XML、INI）
-- 易于测试
+工程文件与 `CMakeLists.txt` 描述同一套目标关系，二选一即可。
 
-### 4. **FilterEngine** - 核心业务逻辑
-封装抓取→清洗→相似度计算→决策的全流程。
+## 扩展点
 
-```cpp
-class FilterEngine {
-    Result ExecuteFilterCycle(
-        HWND target_window,
-        int mode,
-        float positive_threshold,
-        float negative_threshold,
-        bool record_data
-    );
-};
-```
+| 想做的事 | 改哪里 |
+|---|---|
+| 换 UI（Web / CLI / 托盘） | 新写一个前端，复用 `IApplicationController`，核心层不动 |
+| 换语义模型 | 替换 `models/` 下两个文件；张量名与 128 长度需匹配（见 `models/README.md`） |
+| 加筛选维度 | 在 `SimilarityPolicy` 增加模板分组与阈值字段 |
+| 换抓取方式 | 只改 ① 步对应的 `utils/` 实现 |
 
-**优势**：
-- 业务逻辑独立于 UI
-- 易于单元测试
-- 易于移植到其他平台
+## 相关文档
 
-### 5. **ApplicationService** - 业务编排
-实现 `IApplicationController`，协调各组件。
-
-```cpp
-class ApplicationService : public IApplicationController {
-    std::unique_ptr<StateManager> state_;
-    std::unique_ptr<ConfigurationManager> config_;
-    std::unique_ptr<FilterEngine> engine_;
-
-    void StartFilteringLoop() override {
-        // 创建后台线程，执行 FilterEngine
-        // 订阅状态变化，自动保存配置
-    }
-};
-```
-
----
-
-## 使用流程
-
-### 场景 1：用户按下"启动筛选"按钮
-
-**Console UI：**
-```cpp
-ConsoleUI::ProcessCommand("1") {
-    controller_->StartFilteringLoop();
-}
-```
-
-**ApplicationService：**
-```cpp
-void StartFilteringLoop() {
-    state_->SetRunning(true);  // 状态改变，通知观察者
-    filter_thread_ = std::thread([this] { BackgroundFilterLoop(); });
-}
-
-void BackgroundFilterLoop() {
-    while (loop_active_) {
-        auto result = engine_->ExecuteFilterCycle(...);
-        if (result.decision == 0) break;  // 匹配成功，停止
-    }
-}
-```
-
-**StateManager：**
-```cpp
-void SetRunning(bool running) {
-    is_running_ = running;
-    NotifySubscribers();  // 通知所有观察者
-}
-```
-
-**ConsoleUI（订阅者）：**
-```cpp
-controller_->SubscribeStateChange([this](const FilterState& state) {
-    // UI 可以在这里更新显示
-    // 例如禁用启动按钮、显示进度条等
-});
-```
-
-### 场景 2：用户调整阈值
-
-```cpp
-ConsoleUI::ProcessCommand("6") {
-    controller_->AdjustPositiveThreshold(0.05f);
-}
-
-ApplicationService::AdjustPositiveThreshold(0.05f) {
-    state_->SetPositiveThreshold(current + 0.05f);
-}
-
-StateManager::SetPositiveThreshold(...) {
-    positive_threshold_ = value;
-    NotifySubscribers();  // 通知 UI 和其他观察者
-
-    // 自动触发 ApplicationService 订阅者
-    config_->SaveConfig(state);  // 自动保存
-}
-```
-
----
-
-## 扩展 UI
-
-添加新 UI（如 WPF）非常简单：
-
-### 步骤 1：创建 WPF UI 适配器
-
-```cpp
-// src/ui/WpfUI.h
-class WpfUI {
-    std::shared_ptr<IApplicationController> controller_;
-
-public:
-    WpfUI(std::shared_ptr<IApplicationController> controller);
-
-    void OnStartButtonClicked() {
-        controller_->StartFilteringLoop();
-    }
-
-    void Initialize() {
-        controller_->SubscribeStateChange([this](const FilterState& state) {
-            UpdateUI(state);  // 更新 WPF 控件
-        });
-    }
-
-private:
-    void UpdateUI(const FilterState& state);
-};
-```
-
-### 步骤 2：启用 WPF 的 main
-
-```cpp
-// src/main_wpf.cpp
-int WINAPI wWinMain(...) {
-    auto controller = std::make_shared<ApplicationService>(exe_dir, data_dir);
-
-    WpfUI ui(controller);
-    ui.Initialize();
-    ui.Run();
-
-    return 0;
-}
-```
-
-**就这么简单！** 不需要修改任何业务逻辑。
-
----
-
-## 迁移清单
-
-### Phase 1: 创建应用层（已完成）
-- [x] `IApplicationController` 接口
-- [x] `StateManager` 状态管理
-- [x] `ConfigurationManager` 配置管理
-- [x] `ApplicationService` 业务编排
-
-### Phase 2: 迁移业务逻辑
-- [ ] 实现 `FilterEngine::ExecuteFilterCycle()`
-  - 复用现有的 `main_loop()` 逻辑
-  - 去掉控制台输出，改为通过 `NotifyMessage()` 发送事件
-
-- [ ] 实现 `FilterEngine::Initialize()`
-  - 加载 ONNX 模型
-
-- [ ] 实现 `ApplicationService::BackgroundFilterLoop()`
-  - 调用 `FilterEngine`
-  - 处理异常和中断
-
-### Phase 3: 创建新 UI 适配器
-- [ ] `ConsoleUI` 独立适配器（基于现有代码）
-- [ ] `WpfUI` WPF 适配器（可选）
-- [ ] `RestAPI` REST 服务（可选）
-
-### Phase 4: 切换主程序
-- [ ] 保留旧的 `main.cpp`
-- [ ] 创建新的 `main_refactored.cpp`
-- [ ] 测试新架构
-- [ ] 逐步迁移
-
----
-
-## 最佳实践
-
-### 1. 单一职责原则
-```cpp
-❌ 错误：ApplicationService 既处理 UI，又处理业务逻辑
-✅ 正确：
-  - ApplicationService：只处理业务编排
-  - ConsoleUI：只处理 UI 交互
-  - StateManager：只管理状态
-  - FilterEngine：只执行过滤逻辑
-```
-
-### 2. 依赖注入
-```cpp
-❌ 错误：在 ApplicationService 内部创建 FilterEngine
-✅ 正确：在构造函数注入
-class ApplicationService {
-    std::unique_ptr<FilterEngine> engine_;
-    ApplicationService(std::unique_ptr<FilterEngine> engine) : engine_(std::move(engine)) {}
-};
-```
-
-### 3. 观察者模式
-```cpp
-❌ 错误：UI 通过全局变量访问状态
-✅ 正确：UI 通过回调订阅状态变化
-controller_->SubscribeStateChange([this](const FilterState& state) {
-    UpdateUI(state);
-});
-```
-
-### 4. 错误处理
-```cpp
-✅ 好的做法：
-- `FilterEngine::Result` 包含 `success` 和 `message`
-- 通过 `NotifyMessage()` 传送错误给 UI
-- UI 决定如何显示错误（对话框、日志、通知等）
-```
-
----
-
-## 测试策略
-
-### 单元测试示例
-
-```cpp
-// test/ApplicationServiceTest.cpp
-TEST(ApplicationService, SetFilterModeNotifiesSubscribers) {
-    auto controller = std::make_shared<ApplicationService>(exe_dir, data_dir);
-
-    FilterState captured_state;
-    controller->SubscribeStateChange([&](const FilterState& state) {
-        captured_state = state;
-    });
-
-    controller->SetFilterMode(1);  // Positive
-
-    ASSERT_EQ(captured_state.mode, 1);
-}
-
-TEST(ApplicationService, ConfigSavedOnStateChange) {
-    auto controller = std::make_shared<ApplicationService>(exe_dir, data_dir);
-
-    controller->AdjustPositiveThreshold(0.1f);
-
-    // 重新加载，验证配置已保存
-    auto controller2 = std::make_shared<ApplicationService>(exe_dir, data_dir);
-    ASSERT_EQ(controller2->GetCurrentState().positive_threshold, 0.75f);
-}
-```
-
----
-
-## 性能考虑
-
-1. **线程安全**：`StateManager` 使用 `std::mutex` 保护订阅者列表
-2. **回调性能**：考虑批量通知或节流，避免高频更新
-3. **内存**：`std::shared_ptr` 会增加开销，但避免了管理复杂性
-
----
-
-## 总结
-
-通过此架构，你获得：
-
-| 特性 | 好处 |
-|------|------|
-| 解耦 UI 与业务 | 业务逻辑可独立演进 |
-| 多 UI 支持 | Console、WPF、Qt、Web 共享同一逻辑 |
-| 易于测试 | 业务逻辑不依赖 UI |
-| 易于扩展 | 添加新功能无需修改既有代码 |
-| 响应式 UI | 通过观察者模式实时更新 |
-| 配置持久化 | 自动保存/加载，易于扩展 |
-
----
-
-## 下一步
-
-1. 实现 `FilterEngine` 核心逻辑
-2. 创建独立的 `ConsoleUI` 适配器
-3. 编写单元测试
-4. 考虑添加 WPF UI
-5. 逐步迁移现有代码
+- [`models/README.md`](../models/README.md) —— 模型张量接口与获取方式
+- [`data/README.md`](../data/README.md) —— 配置字段与模板格式
+- 各模块内 `model.md` / `clean.md` / `utils.md` —— 模块级细节

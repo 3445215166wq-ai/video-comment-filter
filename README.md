@@ -4,7 +4,8 @@
 
 全程本地推理，**无任何网络请求，数据不出设备**。
 
-> **模型文件不随仓库分发**（约 453MB）。克隆后请按 [`models/README.md`](models/README.md) 获取 `model.onnx` 与 `sentencepiece.bpe.model`，放入 `models/` 目录。
+> **模型文件不随仓库分发**（约 453MB，超出 GitHub 单文件 100MB 限制）。
+> 请从 [Releases](https://github.com/3445215166wq-ai/video-comment-filter/releases) 下载 `model.onnx` 与 `sentencepiece.bpe.model`，放入 `models/` 目录。详见 [`models/README.md`](models/README.md)。
 
 ---
 
@@ -76,7 +77,7 @@
 
 核心算法被编译为静态库 `VideoFilteringCore.lib`，UI 层**看不到**任何推理细节，只通过 `IApplicationController` 调用。
 
-详见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 与 [`docs/CLASS_DIAGRAM.md`](docs/CLASS_DIAGRAM.md)。
+详见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)：模块职责、接口契约、筛选执行流程、决策矩阵与线程模型。
 
 ---
 
@@ -200,8 +201,7 @@ ONNX Runtime 直接加载本地模型，全程无网络调用。相比 Python �
 
 | 文档 | 内容 |
 |---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 分层架构与模块职责 |
-| [`docs/CLASS_DIAGRAM.md`](docs/CLASS_DIAGRAM.md) | 类关系与数据流 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 分层架构、模块职责、接口契约、执行流程、决策矩阵 |
 | [`models/README.md`](models/README.md) | 模型获取与张量接口要求 |
 | [`data/README.md`](data/README.md) | 配置字段与模板格式 |
 

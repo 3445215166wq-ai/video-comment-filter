@@ -71,10 +71,20 @@
 
 ## 获取方式
 
-这两个文件是项目自用模型，未随仓库分发。获取途径：
+这两个文件作为 Release 附件提供：
 
-1. 项目的 GitHub Release 附件（如有）；
-2. 联系作者获取。
+**https://github.com/3445215166wq-ai/video-comment-filter/releases/latest**
+
+| 附件 | 下载后放到 |
+|---|---|
+| `model.onnx` | `models/model.onnx` |
+| `sentencepiece.bpe.model` | `models/sentencepiece.bpe.model` |
+
+也可用命令行：
+
+```bash
+gh release download v1.0.0 --repo 3445215166wq-ai/video-comment-filter --dir models
+```
 
 拿到后直接放进 `models/` 目录即可。
 
