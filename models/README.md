@@ -10,10 +10,11 @@
 > `sentencepiece.bpe.model` 由 `tools/rebuild_sentencepiece_model.py` 从原始 `tokenizer.json` 重建而成，
 > 保证 piece 顺序与模型 embedding 行号一致。
 >
-> ⚠️ **不要直接使用上游仓库自带的 `sentencepiece.bpe.model`**。该模型
-> （`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`）发布的 `tokenizer.json` 与
-> 自带的 spm **特殊词元编号不一致**（前者 `<s>=0/<pad>=1/<unk>=3`，后者 `<unk>=0/<s>=1` 且无 `<pad>`），
-> 而权重按前者训练。绕过 HF `AutoTokenizer` 直接喂 SentencePiece 原生库会整体错位 1 位，**且不报错**。
+> ⚠️ **不要直接使用上游仓库自带的 `sentencepiece.bpe.model`。** XLM-R 系的 spm 有一个已知特性：
+> **它的原始 id 与模型实际使用的 token id 相差 1 位**（`<unk>=0/<s>=1/</s>=2/','=3…` vs 模型的
+> `<s>=0/<pad>=1/</s>=2/<unk>=3/','=4…`）。HuggingFace 在 `XLMRobertaTokenizer` 里用
+> `fairseq_offset = 1` 显式补偿；**绕过 HF、直接用 SentencePiece 原生库时，调用方必须自己加这个偏移**，
+> 否则整体错位 1 位且**不报错**。本仓库的分词表已把偏移固化进文件，故 C++ 侧无需再做补偿。
 > 详见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
 
 放好之后的目录结构：
@@ -84,7 +85,7 @@
 两点结论：
 
 1. 这套 `<s>` / `<pad>` / `</s>` / `<unk>` 属于 **XLM-R 体系的 SentencePiece**，与多语言 MiniLM 原生配对。
-2. 特殊词元的 id 排布**必须与模型 `word_embeddings` 的行序一致**。本仓库历史上直接沿用了上游仓库自带的 `sentencepiece.bpe.model`，而它的特殊词元编号（`<unk>=0/<s>=1/</s>=2`，无 `<pad>`）与该仓库 `tokenizer.json` 的（`<s>=0/<pad>=1/</s>=2/<unk>=3`）**并不一致**，导致 249,996 个正常词元**整体前移 1 位**，语义筛选失效且全程不报错。现已用 `tools/rebuild_sentencepiece_model.py` 按 `tokenizer.json` 顺序重建，修复细节见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
+2. 特殊词元的 id 排布**必须与模型 `word_embeddings` 的行序一致**。本仓库历史上直接沿用了上游自带的 `sentencepiece.bpe.model`，而 XLM-R 系 spm 的原始 id 比模型 id **少 1 位**（HF 用 `fairseq_offset = 1` 补偿），C++ 侧没有补偿，导致 249,996 个正常词元**整体前移 1 位**，语义筛选失效且全程不报错。现已用 `tools/rebuild_sentencepiece_model.py` 按 `tokenizer.json` 顺序重建（偏移已固化），修复细节见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
 
 ### 哪些模型可以替换
 

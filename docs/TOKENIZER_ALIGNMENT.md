@@ -119,10 +119,10 @@ HuggingFace 约定：  [<s>] [<pad>] [</s>] [<unk>] [正常词...]    ← 特殊
 SentencePiece 约定：[<unk>] [<s>] [</s>]          [正常词...]    ← 特殊词元占 3 个位置
 ```
 
-### 4.2 真正的来源：上游仓库自带的两套分词表本身就不一致
+### 4.2 真正的机制：XLM-R 的 spm 与模型词表差 1 位（`fairseq_offset`）
 
-> **这一节在 2026-11-19 晚做了更正。** 最初的结论是"第三方格式转换工具把特殊词元重排了"，
-> 但经下载上游仓库原始文件逐字节比对后推翻——见下表。
+> **本节在 2026-11-19 晚做过两次更正**：最初的结论是"第三方格式转换工具重排了特殊词元"，
+> 随后又改口为"上游仓库自相矛盾"，**两者都被推翻**。以下是被权威源码证实的版本。
 
 模型已确认是 **`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`**，三重证据：
 
@@ -132,29 +132,44 @@ SentencePiece 约定：[<unk>] [<s>] [</s>]          [正常词...]    ← 特�
 | `config.json` 的 `vocab_size` | **250037**，与 ONNX 的 `word_embeddings` 行数 `(250037, 384)` 精确吻合 |
 | `config.json` 其余字段 | hidden 384 / 12 层 / `max_position_embeddings` 512 / `type_vocab_size` 2，全部对上 |
 
-**而该仓库同时发布的两种分词表，特殊词元编号并不一致：**
+**关键事实**：本项目所用的 `sentencepiece.bpe.model`（SHA256 `CFC8146A…`），与 **`xlm-roberta-base` 官方发布的 spm 字节完全相同**。
 
-| 词元 | `tokenizer.json`（+ `special_tokens_map.json`） | 仓库自带的 `sentencepiece.bpe.model` |
+所以这既不是本地转换产物，也不是某个仓库的疏漏——而是 **XLM-R 的既有设计**：
+**spm 的原始 id 与 fairseq 词表（即模型实际使用的 token id）相差 1 位。**
+
+| id | fairseq 词表（= 模型 token id） | spm 原始 id（= SentencePiece 库直接返回的 id） |
 |---|---|---|
-| `<s>` | **0** | 1 |
-| `<pad>` | **1** | **不存在** |
-| `</s>` | **2** | 2 |
-| `<unk>` | **3** | 0 |
-| `<mask>` | **250001** | 不存在 |
-| 条目数 | 250,002 | 250,000 |
+| 0 | `<s>` | `<unk>` |
+| 1 | `<pad>` | `<s>` |
+| 2 | `</s>` | `</s>` |
+| 3 | `<unk>` | `,` |
+| 4 | `,` | `.` |
+| 之后 | … | …（**每个都差 1**） |
 
-`sentencepiece.bpe.model` 的 SHA256 为 `CFC8146A…`，与本项目当初使用的文件**字节完全相同**——也就是说，
-**这份分词表是上游原厂文件，不是本地转换产物。**
+HuggingFace 在 `transformers/models/xlm_roberta/tokenization_xlm_roberta.py` 里**显式补偿**了这一点：
 
-模型权重是按 `tokenizer.json` 的顺序训练的（第 7 节的对照实验证明）。因此：
+```python
+self.fairseq_tokens_to_ids = {"<s>": 0, "<pad>": 1, "</s>": 2, "<unk>": 3}
+# The first "real" token "," has position 4 in the original fairseq vocab
+# and position 3 in the spm vocab
+self.fairseq_offset = 1
+self.fairseq_tokens_to_ids["<mask>"] = len(self.sp_model) + self.fairseq_offset
+...
+return spm_id + self.fairseq_offset if spm_id else self.unk_token_id
+```
 
-- 走 **HuggingFace `AutoTokenizer`（fast，默认加载 `tokenizer.json`）** → id 正确，一切正常
-- 走 **SentencePiece C++ 库直接加载 `sentencepiece.bpe.model`** → 拿到的是 `<unk>/<s>/</s>` 那套编号，**整体错位 1 位**
+（`<mask>` 的位置 `250000 + 1 = 250001`，与 `tokenizer.json` 里的值完全吻合。）
 
-本项目正是后者（C++ 直接调 SentencePiece），所以踩中了。
+**本项目的错误在于：直接用 SentencePiece C++ 库取 spm 的原始 id，却没有实现这个 `fairseq_offset = 1`。**
 
-> **为什么长期无人报告**：这个模型有 2500 万+ 下载量，但绝大多数用户走 Python + `AutoTokenizer`，
-> 永远碰不到 spm 文件。只有"绕过 HF、直接用 SentencePiece 原生库"这一小撮人会中招（如本项目）。
+- 走 **HuggingFace `AutoTokenizer`** → 框架替调用方加了 offset，一切正常
+- 走 **SentencePiece 原生库**（C++ 集成）→ **必须自己加 offset**，本项目漏了 → 整体错位 1 位
+
+> **所以这不是上游的 bug，不需要向上游报 issue。** 该模型 2500 万+ 下载量中绝大多数走 Python + `AutoTokenizer`，
+> 永远碰不到；只有绕过 HF、直接用 SentencePiece 原生库的集成（如本项目）会踩中。
+
+> 本项目的修复（重建 spm 使 piece 顺序与模型 id 一致，并写入 `pad_id=1`）**等价于把 `fairseq_offset` 固化进文件**，
+> 从而不再依赖调用方记得加偏移。
 
 ### 4.3 一个反直觉的比例
 
@@ -162,9 +177,7 @@ SentencePiece 约定：[<unk>] [<s>] [</s>]          [正常词...]    ← 特�
 
 位置编号会把局部错误放大成全局错误。
 
-位置编号会把局部错误放大成全局错误。
-
-### 4.3 用非术语的方式理解
+### 4.4 用非术语的方式理解
 
 - **模型** = 一整墙储物柜，每个格子有固定编号，格子里放着一件"含义"（384 维向量）。柜子不知道自己做的是谁的柜子。
 - **分词器** = 一本索引册，写着"词 A → 3 号柜"。

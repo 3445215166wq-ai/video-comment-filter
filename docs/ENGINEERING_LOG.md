@@ -120,13 +120,15 @@ nlohmann），做到「克隆即可编译」。
 
 - **现象**：程序不报错、不崩溃、照常有输出，但语义筛选失效——相关句对与无关句对的
   平均余弦几乎相等，方向还略微相反（区分度 **−0.0149**）。
-- **根因（2026-11-19 晚更正）**：本项目用的 `sentencepiece.bpe.model` 是**上游原厂文件**
-  （SHA256 `CFC8146A…`，与 `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
-  仓库发布的完全一致），并非本地转换产物。真正的问题是**该仓库同时发布的两套分词表互相矛盾**：
-  `tokenizer.json` 用 `<s>=0/<pad>=1/</s>=2/<unk>=3/<mask>=250001`，
-  而自带的 `sentencepiece.bpe.model` 用 `<unk>=0/<s>=1/</s>=2` 且没有 `<pad>`。
-  模型权重按前者训练 —— 于是"用 HF AutoTokenizer"正常，"直接用 SentencePiece 原生库"必然错位 1 位。
-  本项目属于后者。**早期"被第三方转换工具搞坏"的结论已推翻。**
+- **根因（2026-11-19 晚，两次更正后的最终结论）**：这是 **XLM-R 的既有设计**——
+  `spm` 的原始 id 与 fairseq 词表（模型实际使用的 token id）**相差 1 位**。
+  证据：本项目所用的 `sentencepiece.bpe.model`（SHA256 `CFC8146A…`）与 **`xlm-roberta-base`
+  官方发布的 spm 字节完全相同**；HuggingFace 在 `tokenization_xlm_roberta.py` 中用
+  `self.fairseq_offset = 1` 显式补偿（源码注释里就有那张对照表，`<mask>` 的位置
+  `len(sp_model)+1 = 250001` 也与之吻合）。
+  **本项目的错误是：直接用 SentencePiece C++ 库取原始 id，却没有实现这个 offset。**
+  走 HF `AutoTokenizer` 不会出问题，绕过它就会整体错位。
+  （此前两个错误结论——"被第三方转换工具搞坏"和"上游仓库自相矛盾"——均已推翻。）
 - **一个反直觉的比例**：出错的是 4 个特殊词元（占词表 0.002%），被破坏的是 99.998%。
 - **修法（方案二）**：不采用"代码里 +1 补偿"，而是用
   `tools/rebuild_sentencepiece_model.py` 按 `tokenizer.json` 的原始顺序重建 ModelProto，
