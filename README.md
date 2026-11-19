@@ -7,10 +7,19 @@
 > **模型文件不随仓库分发**（约 453MB，超出 GitHub 单文件 100MB 限制）。
 > 请从 [Releases](https://github.com/3445215166wq-ai/video-comment-filter/releases) 下载 `model.onnx` 与 `sentencepiece.bpe.model`，放入 `models/` 目录。详见 [`models/README.md`](models/README.md)。
 
+## 界面
+
+悬浮球分层交互：闲置时以不同颜色的悬浮球表示运行状态，鼠标悬停展开一级快捷面板，再呼出二级完整参数面板。
+
+![悬浮球分层 UI 设计](docs/images/ui-design.jpg)
+
+二级面板集成筛选模式切换、正负阈值滑轨、目标窗口绑定、模板与数据管理、实时运行日志。整体以"轻量化、高可控、强反馈"为原则，最大程度减少对视频画面的遮挡。
+
 ---
 
 ## 目录
 
+- [界面](#界面)
 - [核心功能](#核心功能)
 - [系统架构](#系统架构)
 - [技术栈](#技术栈)
@@ -124,7 +133,7 @@
 ├── models/                         # 模型目录（文件需自行获取）
 │   └── README.md
 │
-└── docs/                           # 架构与类图文档
+└── docs/                           # 架构文档与界面设计图
 ```
 
 ---
