@@ -119,13 +119,48 @@ HuggingFace 约定：  [<s>] [<pad>] [</s>] [<unk>] [正常词...]    ← 特殊
 SentencePiece 约定：[<unk>] [<s>] [</s>]          [正常词...]    ← 特殊词元占 3 个位置
 ```
 
-转换工具按 SentencePiece 自身规范重建了文件：把 meta 词元按 SP 默认顺序（`<unk>`/`<s>`/`</s>`）重排，并因为 SP 的 `pad_id` 默认是"无"而丢弃了 `<pad>`，同时丢弃末尾的 `<mask>`。
+### 4.2 真正的来源：上游仓库自带的两套分词表本身就不一致
 
-后果：**特殊词元少占 1 个位置，其后全部正常词元前移 1 格。**
+> **这一节在 2026-11-19 晚做了更正。** 最初的结论是"第三方格式转换工具把特殊词元重排了"，
+> 但经下载上游仓库原始文件逐字节比对后推翻——见下表。
 
-### 4.2 一个反直觉的比例
+模型已确认是 **`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`**，三重证据：
+
+| 证据 | 结果 |
+|---|---|
+| `tokenizer.json` SHA256 | 与上游仓库**完全一致**（`2c3387be76557bd4…`） |
+| `config.json` 的 `vocab_size` | **250037**，与 ONNX 的 `word_embeddings` 行数 `(250037, 384)` 精确吻合 |
+| `config.json` 其余字段 | hidden 384 / 12 层 / `max_position_embeddings` 512 / `type_vocab_size` 2，全部对上 |
+
+**而该仓库同时发布的两种分词表，特殊词元编号并不一致：**
+
+| 词元 | `tokenizer.json`（+ `special_tokens_map.json`） | 仓库自带的 `sentencepiece.bpe.model` |
+|---|---|---|
+| `<s>` | **0** | 1 |
+| `<pad>` | **1** | **不存在** |
+| `</s>` | **2** | 2 |
+| `<unk>` | **3** | 0 |
+| `<mask>` | **250001** | 不存在 |
+| 条目数 | 250,002 | 250,000 |
+
+`sentencepiece.bpe.model` 的 SHA256 为 `CFC8146A…`，与本项目当初使用的文件**字节完全相同**——也就是说，
+**这份分词表是上游原厂文件，不是本地转换产物。**
+
+模型权重是按 `tokenizer.json` 的顺序训练的（第 7 节的对照实验证明）。因此：
+
+- 走 **HuggingFace `AutoTokenizer`（fast，默认加载 `tokenizer.json`）** → id 正确，一切正常
+- 走 **SentencePiece C++ 库直接加载 `sentencepiece.bpe.model`** → 拿到的是 `<unk>/<s>/</s>` 那套编号，**整体错位 1 位**
+
+本项目正是后者（C++ 直接调 SentencePiece），所以踩中了。
+
+> **为什么长期无人报告**：这个模型有 2500 万+ 下载量，但绝大多数用户走 Python + `AutoTokenizer`，
+> 永远碰不到 spm 文件。只有"绕过 HF、直接用 SentencePiece 原生库"这一小撮人会中招（如本项目）。
+
+### 4.3 一个反直觉的比例
 
 > 出错的是 **4 个特殊词元**（占词表 0.002%），被破坏的是 **249,998 个正常词元**（99.998%）。
+
+位置编号会把局部错误放大成全局错误。
 
 位置编号会把局部错误放大成全局错误。
 

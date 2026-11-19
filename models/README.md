@@ -8,8 +8,13 @@
 | `sentencepiece.bpe.model` | 5.3MB | 分词器，把文本切成模型能吃的 token id | **已随仓库分发**，见本目录 |
 
 > `sentencepiece.bpe.model` 由 `tools/rebuild_sentencepiece_model.py` 从原始 `tokenizer.json` 重建而成，
-> 保证 piece 顺序与模型 embedding 行号一致。**请勿用第三方"格式转换"工具重新生成**——
-> 那会重排特殊词元并令全部 id 错位 1 位，且程序不会报错。详见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
+> 保证 piece 顺序与模型 embedding 行号一致。
+>
+> ⚠️ **不要直接使用上游仓库自带的 `sentencepiece.bpe.model`**。该模型
+> （`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`）发布的 `tokenizer.json` 与
+> 自带的 spm **特殊词元编号不一致**（前者 `<s>=0/<pad>=1/<unk>=3`，后者 `<unk>=0/<s>=1` 且无 `<pad>`），
+> 而权重按前者训练。绕过 HF `AutoTokenizer` 直接喂 SentencePiece 原生库会整体错位 1 位，**且不报错**。
+> 详见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
 
 放好之后的目录结构：
 
@@ -33,6 +38,17 @@
 `model.onnx` 和 `sentencepiece.bpe.model` 是**绑定**的：分词器产出的 token id 必须落在模型词表的编号空间内。换任何一个，token id 就对不上，句向量完全失效，而程序**不会报错**，只会输出垃圾相似度。
 
 因此替换时必须同族配对，不能混搭。
+
+### 上游来源（已确认）
+
+| 项 | 值 |
+|---|---|
+| HuggingFace 仓库 | **`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`** |
+| 确认依据 1 | 本项目的 `tokenizer.json` 与该仓库发布的 **SHA256 完全一致**（`2c3387be76557bd4…`） |
+| 确认依据 2 | 该仓库 `config.json` 的 `vocab_size` = **250037**，与 ONNX `word_embeddings` 行数精确吻合 |
+| 确认依据 3 | hidden 384 / 12 层 / `max_position_embeddings` 512 / `type_vocab_size` 2 全部对上 |
+
+需要微调时，应从该仓库获取 `model.safetensors`（约 449 MB）+ `config.json`，而不是拿 `model.onnx` 反推。
 
 ### 本项目模型的实测规格
 
@@ -68,7 +84,7 @@
 两点结论：
 
 1. 这套 `<s>` / `<pad>` / `</s>` / `<unk>` 属于 **XLM-R 体系的 SentencePiece**，与多语言 MiniLM 原生配对。
-2. 特殊词元的 id 排布**必须与模型 `word_embeddings` 的行序一致**。历史上本仓库曾使用一份由第三方工具"格式转换"得到的分词表，它把特殊词元重排为 `<unk>/<s>/</s>` 并丢弃了 `<pad>`，导致其后 249,996 个正常词元**整体前移 1 位**，语义筛选失效且全程不报错。现已用 `tools/rebuild_sentencepiece_model.py` 重建，修复细节见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
+2. 特殊词元的 id 排布**必须与模型 `word_embeddings` 的行序一致**。本仓库历史上直接沿用了上游仓库自带的 `sentencepiece.bpe.model`，而它的特殊词元编号（`<unk>=0/<s>=1/</s>=2`，无 `<pad>`）与该仓库 `tokenizer.json` 的（`<s>=0/<pad>=1/</s>=2/<unk>=3`）**并不一致**，导致 249,996 个正常词元**整体前移 1 位**，语义筛选失效且全程不报错。现已用 `tools/rebuild_sentencepiece_model.py` 按 `tokenizer.json` 顺序重建，修复细节见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
 
 ### 哪些模型可以替换
 
@@ -127,7 +143,8 @@ python tools/rebuild_sentencepiece_model.py \
 ```
 
 脚本会以 `tokenizer.json` 的 piece 顺序为准、沿用现有 score、显式写入 `unk_id/bos_id/eos_id/pad_id`，并在写出后自动回读校验。
-**不要用第三方"tokenizer.json → .model 格式转换"工具**，理由见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
+
+**不要直接用上游仓库自带的 spm 文件**（它的特殊词元编号与模型权重不匹配），理由见 [`docs/TOKENIZER_ALIGNMENT.md`](../docs/TOKENIZER_ALIGNMENT.md)。
 
 ---
 

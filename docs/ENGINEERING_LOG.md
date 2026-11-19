@@ -120,9 +120,13 @@ nlohmann），做到「克隆即可编译」。
 
 - **现象**：程序不报错、不崩溃、照常有输出，但语义筛选失效——相关句对与无关句对的
   平均余弦几乎相等，方向还略微相反（区分度 **−0.0149**）。
-- **根因**：`sentencepiece.bpe.model` 由第三方"格式转换"工具从 `tokenizer.json` 生成，
-  该工具按 SentencePiece 默认约定重排了特殊词元（`<unk>/<s>/</s>`）并**丢弃了 `<pad>`**。
-  特殊词元少占 1 个位置，导致其后 **249,996 个正常词元整体前移 1 位**。
+- **根因（2026-11-19 晚更正）**：本项目用的 `sentencepiece.bpe.model` 是**上游原厂文件**
+  （SHA256 `CFC8146A…`，与 `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+  仓库发布的完全一致），并非本地转换产物。真正的问题是**该仓库同时发布的两套分词表互相矛盾**：
+  `tokenizer.json` 用 `<s>=0/<pad>=1/</s>=2/<unk>=3/<mask>=250001`，
+  而自带的 `sentencepiece.bpe.model` 用 `<unk>=0/<s>=1/</s>=2` 且没有 `<pad>`。
+  模型权重按前者训练 —— 于是"用 HF AutoTokenizer"正常，"直接用 SentencePiece 原生库"必然错位 1 位。
+  本项目属于后者。**早期"被第三方转换工具搞坏"的结论已推翻。**
 - **一个反直觉的比例**：出错的是 4 个特殊词元（占词表 0.002%），被破坏的是 99.998%。
 - **修法（方案二）**：不采用"代码里 +1 补偿"，而是用
   `tools/rebuild_sentencepiece_model.py` 按 `tokenizer.json` 的原始顺序重建 ModelProto，
