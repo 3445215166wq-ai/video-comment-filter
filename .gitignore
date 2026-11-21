@@ -1,4 +1,4 @@
-# ===== 构建产物 =====
+﻿# ===== 构建产物 =====
 build/
 build_probe/
 out/
@@ -98,3 +98,10 @@ docs/html/
 videodemo_debug.txt
 test_onnx_log.txt
 token_input_hex.txt
+
+# ===== 可行性验证实验工具（本地保留，不进公开仓库）=====
+tools/experiments/
+
+# ===== 个人材料（自我评估 / AI 使用过程记录）=====
+docs/WHAT_I_ACTUALLY_DID.md
+docs/AI_USAGE_PROCESS.md

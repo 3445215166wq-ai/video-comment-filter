@@ -1,4 +1,4 @@
-﻿#include "core/similarity_policy.h"
+#include "core/similarity_policy.h"
 #include "utils/utils.h"
 #include <filesystem>
 
@@ -76,7 +76,6 @@ namespace SimilarityPolicy {
         // 位运算解析启用模式：支持单独正向、单独负向、双向检测
         const bool positive_enabled = (mode_value & static_cast<int>(Mode::Positive)) != 0;
         const bool negative_enabled = (mode_value & static_cast<int>(Mode::Negative)) != 0;
-        const bool both_enabled = positive_enabled && negative_enabled;
 
         Decision decision;
 
@@ -94,14 +93,20 @@ namespace SimilarityPolicy {
             decision.groups.push_back(std::move(neg_group));
         }
 
-        // 分支1：仅启用负向检测 → 负向命中则滚动(1)，未命中则停止(0)
-        if (negative_enabled && !positive_enabled) {
-            decision.filter_result = neg_hit ? 1 : 0;
+        // 规则一：负向命中 → 一律滚动到下一条(1)，与启用哪种模式无关。
+        //
+        // 历史缺陷：此前的实现把同一件事写在了两处，且返回值相反——
+        //   "仅负向"分支是 neg_hit ? 1 : 0（命中滚动，正确）
+        //   "双向"分支则是直接 0（命中却停在该视频上，错误）
+        // 两段单独看都自洽，放进同一张真值表才暴露矛盾。现合并为唯一一处表达。
+        // 命中后立即返回，因此双向模式下仍省去一次正向计算（短路行为不变）。
+        if (negative_enabled && neg_hit) {
+            decision.filter_result = 1;
             return decision;
         }
 
-        // 分支2：双向检测 + 负向已命中 → 直接停止(0)，不再检测正向
-        if (both_enabled && neg_hit) {
+        // 规则二：仅启用负向且未命中 → 没有理由滚动，停在该视频(0)
+        if (negative_enabled && !positive_enabled) {
             decision.filter_result = 0;
             return decision;
         }
@@ -120,7 +125,7 @@ namespace SimilarityPolicy {
             decision.groups.push_back(std::move(pos_group));
         }
 
-        // 分支3：仅启用正向/双向未命中 → 正向命中停止(0)，未命中滚动(1)
+        // 规则三：正向命中 → 停在该视频(0)；未命中 → 滚动下一条(1)
         if (positive_enabled) {
             decision.filter_result = pos_hit ? 0 : 1;
             return decision;
